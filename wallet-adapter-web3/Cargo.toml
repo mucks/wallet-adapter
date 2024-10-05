@@ -1,0 +1,12 @@
+[package]
+name = "wallet-adapter-web3"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+# crates.io
+anyhow.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+solana-sdk.workspace = true

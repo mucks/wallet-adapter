@@ -1,0 +1,17 @@
+[package]
+name = "wallet-adapter-base"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# workspace
+wallet-adapter-web3.workspace = true
+
+# crates.io
+anyhow.workspace = true
+async-trait.workspace = true
+bincode.workspace = true
+serde.workspace = true
+strum.workspace = true
+solana-sdk.workspace = true
+wasm-bindgen = { workspace = true, optional = true }

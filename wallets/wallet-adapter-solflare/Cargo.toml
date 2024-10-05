@@ -1,0 +1,6 @@
+[package]
+name = "wallet-adapter-solflare"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

@@ -1,0 +1,23 @@
+[package]
+name = "all-wallets-base-ui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# workspace
+wallet-adapter-base.workspace = true
+wallet-adapter-web3.workspace = true
+wallet-adapter-phantom.workspace = true
+
+# crates.io
+anyhow = { version = "1", workspace = true }
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = [
+    "Window",
+    "Location",
+    "console",
+    "Document",
+    "Element",
+    "HtmlElement",
+] }

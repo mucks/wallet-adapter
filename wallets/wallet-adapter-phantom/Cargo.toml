@@ -1,0 +1,19 @@
+[package]
+name = "wallet-adapter-phantom"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# workspace
+wallet-adapter-base.workspace = true
+wallet-adapter-web3.workspace = true
+
+# crates.io
+anyhow.workspace = true
+async-trait.workspace = true
+js-sys.workspace = true
+log.workspace = true
+solana-sdk.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = ["Window", "Location", "console"] }

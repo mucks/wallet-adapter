@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = [
+    "examples/all-wallets-base-ui",
+    "wallet-adapter-base",
+    "wallet-adapter-web3",
+    "wallets/wallet-adapter-*",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+
+[workspace.dependencies]
+# workspace
+wallet-adapter-base = { path = "./wallet-adapter-base" }
+wallet-adapter-web3 = { path = "./wallet-adapter-web3" }
+
+## wallets
+wallet-adapter-phantom = { path = "./wallets/wallet-adapter-phantom" }
+
+# crates.io
+anyhow = "1"
+async-trait = "0.1"
+bincode = "1.3.3"
+js-sys = "0.3"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+solana-sdk = "2"
+strum = { version = "0.26", features = ["derive"] }
+thiserror = "1"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = "0.3"
