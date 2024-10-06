@@ -3,7 +3,10 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Context, Result};
 use js_sys::{Atomics::wait_async_with_timeout_bigint, Object};
 use solana_sdk::{pubkey::Pubkey, transaction::TransactionVersion};
-use wallet_adapter_base::{BaseWalletAdapter, SupportedTransactionVersions, WalletReadyState};
+use wallet_adapter_base::{
+    BaseWalletAdapter, SupportedTransactionVersions, TransactionOrVersionedTransaction,
+    WalletAdapterEvent, WalletAdapterEventEmitter, WalletError, WalletReadyState,
+};
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use web_sys::{console, Window};
 
@@ -51,6 +54,19 @@ impl From<anyhow::Error> for PhantomConnectError {
     }
 }
 
+fn js_public_key_to_public_key(public_key: js_sys::Object) -> Result<Pubkey> {
+    let to_bytes: js_sys::Function =
+        reflect_get(&public_key, &JsValue::from_str("toBytes"))?.into();
+
+    let bytes = to_bytes
+        .call0(&public_key)
+        .map_err(|err| anyhow!("{:?}", err))?;
+
+    let bytes = js_sys::Uint8Array::new(&bytes).to_vec();
+
+    Ok(bytes.try_into().map_err(|e| anyhow!("{e:?}"))?)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PhantomWallet(Object);
 
@@ -74,8 +90,34 @@ impl PhantomWallet {
             .context("isConnected is not a bool")
     }
 
+    pub fn disconnect(&self) -> std::result::Result<(), (String, String)> {
+        let on: js_sys::Function = reflect_get(&self.0, &JsValue::from_str("disconnect"))
+            .unwrap()
+            .into();
+        on.call0(&self.0).map_err(|err| {
+            let debug_err = format!("{:?}", err);
+
+            if let Some(message) = reflect_get(&err, &JsValue::from_str("message"))
+                .ok()
+                .and_then(|msg| msg.as_string())
+            {
+                (message, debug_err)
+            } else {
+                ("Unknown error".to_string(), debug_err)
+            }
+        })?;
+        Ok(())
+    }
+
     pub fn on(&self, event: &str, cb: js_sys::Function) -> Result<()> {
         let on: js_sys::Function = reflect_get(&self.0, &JsValue::from_str("on"))?.into();
+        on.call2(&self.0, &JsValue::from_str(event), &cb)
+            .map_err(|err| anyhow!("{:?}", err))?;
+        Ok(())
+    }
+
+    pub fn off(&self, event: &str, cb: js_sys::Function) -> Result<()> {
+        let on: js_sys::Function = reflect_get(&self.0, &JsValue::from_str("off"))?.into();
         on.call2(&self.0, &JsValue::from_str(event), &cb)
             .map_err(|err| anyhow!("{:?}", err))?;
         Ok(())
@@ -132,6 +174,30 @@ impl PhantomWallet {
 
         Ok(())
     }
+
+    pub async fn sign_and_send_transaction(
+        &self,
+        transaction: TransactionOrVersionedTransaction,
+    ) -> Result<solana_sdk::signature::Signature> {
+        let tx_json = serde_json::to_string(&transaction)?;
+
+        let sign_and_send_transaction: js_sys::Function =
+            reflect_get(&self.0, &JsValue::from_str("signAndSendTransaction"))?.into();
+
+        let resp = sign_and_send_transaction
+            .call1(&self.0, &JsValue::from_str(&tx_json))
+            .map_err(|err| anyhow!("{:?}", err))?;
+
+        let promise = js_sys::Promise::resolve(&resp);
+
+        let result = wasm_bindgen_futures::JsFuture::from(promise)
+            .await
+            .map_err(|err| anyhow!("{err:?}"))?;
+
+        let result_as_str = result.as_string().context("result is not a string")?;
+
+        Ok(result_as_str.parse()?)
+    }
 }
 
 fn window() -> Result<Window> {
@@ -169,15 +235,21 @@ pub struct PhantomWalletAdapter {
     wallet: Arc<Mutex<Option<PhantomWallet>>>,
     public_key: Arc<Mutex<Option<Pubkey>>>,
     wallet_ready_state: Arc<Mutex<WalletReadyState>>,
+    account_changed_closure: Arc<Mutex<Option<Closure<dyn FnMut(js_sys::Object)>>>>,
+    disconnected_closure: Arc<Mutex<Option<Closure<dyn FnMut()>>>>,
+    event_emitter: WalletAdapterEventEmitter,
 }
 
 impl PhantomWalletAdapter {
     pub fn new() -> Result<Self> {
         let adapter = Self {
+            event_emitter: WalletAdapterEventEmitter::new(),
             connecting: Arc::new(Mutex::new(false)),
             wallet: Arc::new(Mutex::new(None)),
             public_key: Arc::new(Mutex::new(None)),
             wallet_ready_state: Arc::new(Mutex::new(WalletReadyState::NotDetected)),
+            account_changed_closure: Arc::new(Mutex::new(None)),
+            disconnected_closure: Arc::new(Mutex::new(None)),
         };
 
         if adapter.ready_state() != WalletReadyState::Unsupported {
@@ -185,13 +257,20 @@ impl PhantomWalletAdapter {
                 *adapter.wallet_ready_state.lock().unwrap() = WalletReadyState::Loadable;
                 // js lib emits event here
             } else {
-                let ready_state = adapter.wallet_ready_state.clone();
+                let self_clone = adapter.clone();
 
                 // TODO: make this waiting loop a shared logic
                 wasm_bindgen_futures::spawn_local(async move {
                     for _i in 0..60 {
                         if let Ok(true) = is_phantom() {
-                            *ready_state.lock().unwrap() = WalletReadyState::Installed;
+                            self_clone.set_ready_state(WalletReadyState::Installed);
+                            self_clone
+                                .event_emitter
+                                .emit(WalletAdapterEvent::ReadyStateChange(
+                                    WalletReadyState::Installed,
+                                ))
+                                .await
+                                .unwrap();
                             break;
                         }
                         sleep_ms(1000).await;
@@ -203,24 +282,126 @@ impl PhantomWalletAdapter {
         Ok(adapter)
     }
 
-    fn account_changed(pubkey: Pubkey) {
-        // js lib emits event here
+    fn disconnected(&self) -> js_sys::Function {
+        let mut disconnected = self.disconnected_closure.lock().unwrap();
+
+        if let Some(closure) = disconnected.as_ref() {
+            let f: &js_sys::Function = closure.as_ref().unchecked_ref();
+            return f.clone();
+        } else {
+            let closure = Closure::wrap(Box::new(move || {
+                // disconnected code here
+                console_log("disconnected");
+            }) as Box<dyn FnMut()>);
+            let f: &js_sys::Function = closure.as_ref().unchecked_ref();
+
+            let f = f.clone();
+            *disconnected = Some(closure);
+
+            f
+        }
+    }
+
+    fn account_changed(&self) -> js_sys::Function {
+        let mut account_changed = self.account_changed_closure.lock().unwrap();
+
+        if let Some(closure) = account_changed.as_ref() {
+            let f: &js_sys::Function = closure.as_ref().unchecked_ref();
+            return f.clone();
+        } else {
+            let self_clone = self.clone();
+            let closure = Closure::wrap(Box::new(move |pubkey: js_sys::Object| {
+                // disconnected code here
+                console_log(&format!("account changed: {pubkey:?}"));
+
+                let public_key = js_public_key_to_public_key(pubkey).unwrap();
+
+                if self_clone.public_key() == Some(public_key) {
+                    return;
+                }
+
+                self_clone.set_public_key(Some(public_key));
+                self_clone
+                    .event_emitter
+                    .emit_sync(WalletAdapterEvent::Connect(public_key))
+                    .unwrap();
+            }) as Box<dyn FnMut(js_sys::Object)>);
+            let f: &js_sys::Function = closure.as_ref().unchecked_ref();
+            let f = f.clone();
+            *account_changed = Some(closure);
+            f
+        }
     }
 
     fn set_connecting(&self, connecting: bool) {
         *self.connecting.lock().unwrap() = connecting;
     }
 
-    fn set_wallet(&self, wallet: PhantomWallet) {
-        *self.wallet.lock().unwrap() = Some(wallet);
+    fn set_wallet(&self, wallet: Option<PhantomWallet>) {
+        *self.wallet.lock().unwrap() = wallet;
     }
 
-    fn set_public_key(&self, public_key: Pubkey) {
-        *self.public_key.lock().unwrap() = Some(public_key);
+    fn set_public_key(&self, public_key: Option<Pubkey>) {
+        *self.public_key.lock().unwrap() = public_key;
+    }
+
+    fn set_ready_state(&self, ready_state: WalletReadyState) {
+        *self.wallet_ready_state.lock().unwrap() = ready_state;
+    }
+
+    async fn try_connect(&mut self) -> wallet_adapter_base::Result<()> {
+        console_log("phantom connect");
+
+        if self.connected() || self.connecting() {
+            return Ok(());
+        }
+
+        if self.ready_state() == WalletReadyState::Loadable {
+            let window = web_sys::window().context("could not get window")?;
+            set_phantom_url(window).map_err(|e| anyhow!("{:?}", e))?;
+        }
+
+        if self.ready_state() != WalletReadyState::Installed {
+            return Err(wallet_adapter_base::WalletError::WalletNotReady);
+        }
+
+        self.set_connecting(true);
+
+        let wallet = PhantomWallet::from_window(window()?)?;
+
+        if !wallet.is_connected()? {
+            match wallet.connect().await {
+                Ok(_) => {}
+                Err(e) => {
+                    return Err(wallet_adapter_base::WalletError::WalletConnection((
+                        e.message.unwrap_or_else(|| "Unknown error".to_string()),
+                        e.error,
+                    )));
+                }
+            }
+        }
+
+        let public_key = wallet.public_key()?;
+
+        wallet.on("disconnect", self.disconnected())?;
+        wallet.on("accountChanged", self.account_changed())?;
+
+        self.set_wallet(Some(wallet));
+        self.set_public_key(Some(public_key));
+
+        self.event_emitter
+            .emit(WalletAdapterEvent::Connect(public_key))
+            .await?;
+
+        Ok(())
     }
 }
 
 impl BaseWalletAdapter for PhantomWalletAdapter {
+    fn event_emitter(&self) -> WalletAdapterEventEmitter {
+        self.event_emitter.clone()
+    }
+
     fn name(&self) -> String {
         "Phantom".into()
     }
@@ -268,66 +449,79 @@ impl BaseWalletAdapter for PhantomWalletAdapter {
     }
 
     async fn connect(&mut self) -> wallet_adapter_base::Result<()> {
-        console_log("phantom connect");
-
-        if self.connected() || self.connecting() {
-            return Ok(());
+        if let Err(err) = self.try_connect().await {
+            self.event_emitter
+                .emit(WalletAdapterEvent::Error(err))
+                .await?
         }
 
-        if self.ready_state() == WalletReadyState::Loadable {
-            let window = web_sys::window().context("could not get window")?;
-            set_phantom_url(window).map_err(|e| anyhow!("{:?}", e))?;
-        }
-
-        if self.ready_state() != WalletReadyState::Installed {
-            return Err(wallet_adapter_base::Error::WalletNotReady);
-        }
-
-        self.set_connecting(true);
-
-        let wallet = PhantomWallet::from_window(window()?)?;
-
-        if !wallet.is_connected()? {
-            match wallet.connect().await {
-                Ok(_) => {}
-                Err(e) => {
-                    return Err(wallet_adapter_base::Error::WalletConnection((
-                        e.message.unwrap_or_else(|| "Unknown error".to_string()),
-                        e.error,
-                    )));
-                }
-            }
-        }
-
-        let public_key = wallet.public_key()?;
-
-        let connected = Closure::wrap(Box::new(move || {
-            println!("wallet connected");
-        }) as Box<dyn FnMut()>);
-
-        let connected_: &js_sys::Function = connected.as_ref().unchecked_ref();
-
-        wallet.on("disconnect", connected_.clone())?;
-
-        wallet.on("connect", connected_.clone())?;
-
-        self.set_wallet(wallet);
-        self.set_public_key(public_key);
         self.set_connecting(false);
 
         Ok(())
     }
 
     async fn disconnect(&self) -> Result<()> {
-        todo!()
+        let opt_wallet = { self.wallet.lock().unwrap().as_ref().cloned() };
+        let Some(wallet) = opt_wallet else {
+            return Ok(());
+        };
+
+        wallet.off("disconnect", self.disconnected())?;
+        wallet.off("accountChanged", self.account_changed())?;
+
+        self.set_wallet(None);
+        self.set_public_key(None);
+
+        if let Err((err_msg, err)) = wallet.disconnect() {
+            self.event_emitter
+                .emit(WalletAdapterEvent::Error(WalletError::WalletDisconnection(
+                    (err_msg, err),
+                )))
+                .await?;
+        }
+
+        self.event_emitter
+            .emit(WalletAdapterEvent::Disconnect)
+            .await?;
+
+        Ok(())
     }
 
     async fn send_transaction(
         &self,
-        transaction: wallet_adapter_base::TransactionOrVersionedTransaction,
+        mut transaction: wallet_adapter_base::TransactionOrVersionedTransaction,
         connection: impl wallet_adapter_web3::Connection,
         options: Option<wallet_adapter_web3::SendTransactionOptions>,
-    ) -> Result<solana_sdk::signature::Signature> {
-        todo!()
+    ) -> wallet_adapter_base::Result<solana_sdk::signature::Signature> {
+        let opt_wallet = { self.wallet.lock().unwrap().as_ref().cloned() };
+
+        let Some(wallet) = opt_wallet else {
+            return Err(wallet_adapter_base::WalletError::WalletNotConnected);
+        };
+
+        let send_options = options.clone().map(|o| o.send_options);
+
+        match &mut transaction {
+            TransactionOrVersionedTransaction::Transaction(ref mut tx) => {
+                *tx = self
+                    .prepare_transaction(tx.clone(), &connection, send_options)
+                    .await?;
+
+                if let Some(opt) = options {
+                    if opt.signers.len() > 0 {
+                        tx.partial_sign(&opt.signers)?;
+                    }
+                }
+            }
+            TransactionOrVersionedTransaction::VersionedTransaction(ref mut tx) => {
+                if let Some(opt) = options {
+                    if opt.signers.len() > 0 {
+                        tx.sign(&opt.signers);
+                    }
+                }
+            }
+        }
+
+        Ok(wallet.sign_and_send_transaction(transaction).await?)
     }
 }

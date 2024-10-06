@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use solana_sdk::transaction::{TransactionVersion, VersionedTransaction};
-use wallet_adapter_web3::Transaction;
+use solana_sdk::transaction::TransactionVersion;
+use wallet_adapter_web3::{Transaction, VersionedTransaction};
 
 pub type SupportedTransactionVersions = Vec<TransactionVersion>;
 

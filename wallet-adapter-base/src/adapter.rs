@@ -9,6 +9,42 @@ use wallet_adapter_web3::{Connection, SendOptions, Signer};
 use wallet_adapter_web3::{SendTransactionOptions, Transaction};
 
 use crate::transaction::{SupportedTransactionVersions, TransactionOrVersionedTransaction};
+use crate::WalletError;
+
+#[derive(Debug)]
+pub enum WalletAdapterEvent {
+    Connect(Pubkey),
+    Disconnect,
+    Error(WalletError),
+    ReadyStateChange(WalletReadyState),
+}
+
+#[derive(Debug, Clone)]
+pub struct WalletAdapterEventEmitter {
+    tx: tokio::sync::mpsc::Sender<WalletAdapterEvent>,
+    rx: std::sync::Arc<tokio::sync::Mutex<tokio::sync::mpsc::Receiver<WalletAdapterEvent>>>,
+}
+
+impl WalletAdapterEventEmitter {
+    pub fn new() -> Self {
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
+        Self {
+            tx,
+            rx: std::sync::Arc::new(tokio::sync::Mutex::new(rx)),
+        }
+    }
+
+    pub async fn emit(&self, event: WalletAdapterEvent) -> Result<()> {
+        Ok(self.tx.send(event).await?)
+    }
+    pub fn emit_sync(&self, event: WalletAdapterEvent) -> Result<()> {
+        Ok(self.tx.blocking_send(event)?)
+    }
+
+    pub async fn recv(&self) -> Option<WalletAdapterEvent> {
+        self.rx.lock().await.recv().await
+    }
+}
 
 /**
  * A wallet's readiness describes a series of states that the wallet can be in,
@@ -41,6 +77,7 @@ pub enum WalletReadyState {
 }
 
 pub trait BaseWalletAdapter {
+    fn event_emitter(&self) -> WalletAdapterEventEmitter;
     fn name(&self) -> String;
     fn url(&self) -> String;
     fn icon(&self) -> String;
@@ -65,7 +102,7 @@ pub trait BaseWalletAdapter {
         transaction: TransactionOrVersionedTransaction,
         connection: impl Connection,
         options: Option<SendTransactionOptions>,
-    ) -> Result<Signature>;
+    ) -> crate::Result<Signature>;
 
     async fn prepare_transaction(
         &self,
@@ -74,7 +111,7 @@ pub trait BaseWalletAdapter {
         options: Option<SendOptions>,
     ) -> crate::Result<Transaction> {
         let Some(public_key) = self.public_key() else {
-            return Err(crate::Error::WalletNotConnected);
+            return Err(crate::WalletError::WalletNotConnected);
         };
 
         if transaction.fee_payer().is_none() {
@@ -103,14 +140,14 @@ pub trait BaseWalletAdapter {
             match self.supported_transaction_versions() {
                 Some(versions) => {
                     if !versions.contains(&tx.version()) {
-                        return Err(crate::Error::WalletSendTransactionError(format!(
+                        return Err(crate::WalletError::WalletSendTransactionError(format!(
                             "Sending transaction version {:?} isn't supported by this wallet",
                             tx.version()
                         )));
                     }
                 }
                 None => {
-                    return Err(crate::Error::WalletSendTransactionError(
+                    return Err(crate::WalletError::WalletSendTransactionError(
                         "Sending versioned transactions isn't supported by this wallet".to_string(),
                     ))
                 }

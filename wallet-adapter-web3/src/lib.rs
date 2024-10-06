@@ -1,7 +1,7 @@
 //! types that the solana wallet adapter uses
 //! `solana-sdk` doesn't have all the types the `web3.js` has so we need to define our own
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use solana_sdk::{
     commitment_config::CommitmentLevel, hash::Hash, pubkey::Pubkey, signature::Signature,
@@ -64,6 +64,47 @@ impl solana_sdk::signature::Signer for Signer {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VersionedTransaction {
+    fee_payer: Option<Pubkey>,
+    recent_block_hash: Option<Hash>,
+    pub sdk_transaction: solana_sdk::transaction::VersionedTransaction,
+}
+
+impl VersionedTransaction {
+    pub fn new(sdk_transaction: solana_sdk::transaction::VersionedTransaction) -> Self {
+        Self {
+            fee_payer: None,
+            recent_block_hash: None,
+            sdk_transaction,
+        }
+    }
+
+    pub fn set_fee_payer(&mut self, fee_payer: Pubkey) {
+        self.fee_payer = Some(fee_payer);
+    }
+
+    pub fn fee_payer(&self) -> Option<Pubkey> {
+        self.fee_payer
+    }
+
+    pub fn recent_block_hash(&self) -> Option<Hash> {
+        self.recent_block_hash
+    }
+
+    pub fn set_recent_block_hash(&mut self, recent_block_hash: Hash) {
+        self.recent_block_hash = Some(recent_block_hash);
+    }
+
+    pub fn version(&self) -> solana_sdk::transaction::TransactionVersion {
+        self.sdk_transaction.version()
+    }
+
+    pub fn sign(&mut self, _signers: &[Signer]) {
+        todo!();
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Transaction {
     fee_payer: Option<Pubkey>,
     recent_block_hash: Option<Hash>,
@@ -93,5 +134,25 @@ impl Transaction {
 
     pub fn set_recent_block_hash(&mut self, recent_block_hash: Hash) {
         self.recent_block_hash = Some(recent_block_hash);
+    }
+
+    pub fn sign(&mut self, signers: &[Signer]) -> Result<()> {
+        self.sdk_transaction.partial_sign(
+            signers,
+            self.recent_block_hash
+                .context("recent block hash not set")?,
+        );
+
+        Ok(())
+    }
+
+    pub fn partial_sign(&mut self, signers: &[Signer]) -> Result<()> {
+        self.sdk_transaction.partial_sign(
+            signers,
+            self.recent_block_hash
+                .context("recent block hash not set")?,
+        );
+
+        Ok(())
     }
 }

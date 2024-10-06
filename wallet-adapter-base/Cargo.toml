@@ -14,4 +14,4 @@ bincode.workspace = true
 serde.workspace = true
 strum.workspace = true
 solana-sdk.workspace = true
-wasm-bindgen = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["sync"] }

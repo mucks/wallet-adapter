@@ -8,6 +8,7 @@ use wasm_bindgen::prelude::*;
 
 struct ButtonListeners {
     connect: Closure<dyn FnMut()>,
+    disconnect: Closure<dyn FnMut()>,
 }
 
 thread_local! {
@@ -23,6 +24,32 @@ use web_sys::{
 
 fn console_log(msg: &str) {
     web_sys::console::log_1(&msg.into());
+}
+
+pub fn register_disconnect_btn(wallet_adapter: &PhantomWalletAdapter) -> Closure<dyn FnMut()> {
+    let window = web_sys::window().expect("global window does not exists");
+    let document = window.document().expect("expecting a document on window");
+
+    let wallet_adapter = wallet_adapter.clone();
+
+    let on_disconnect_button_clicked = Closure::new(Box::new(move || {
+        console_log("Disconnect button clicked");
+        let wallet_adapter = wallet_adapter.clone();
+        spawn_local(async move {
+            console_log("Disconnecting wallet...");
+            console_log(format!("ready state: {}", wallet_adapter.ready_state()).as_str());
+            wallet_adapter.disconnect().await.unwrap();
+        });
+    }) as Box<dyn FnMut()>);
+
+    document
+        .get_element_by_id("disconnect-btn")
+        .expect("should have a button on the page")
+        .dyn_ref::<web_sys::HtmlElement>()
+        .expect("#button-click-test be an `HtmlElement`")
+        .set_onclick(Some(on_disconnect_button_clicked.as_ref().unchecked_ref()));
+
+    on_disconnect_button_clicked
 }
 
 pub fn register_connect_btn(wallet_adapter: &PhantomWalletAdapter) -> Closure<dyn FnMut()> {
@@ -78,15 +105,44 @@ fn request_animation_frame(f: &Closure<dyn FnMut()>) {
 pub fn main() {
     let phantom_wallet = PhantomWalletAdapter::new().unwrap();
 
+    BUTTON_LISTENERS.with(|button_listeners| {
+        *button_listeners.borrow_mut() = Some(ButtonListeners {
+            connect: register_connect_btn(&phantom_wallet),
+            disconnect: register_disconnect_btn(&phantom_wallet),
+        });
+    });
+
     let mut phantom_copy = phantom_wallet.clone();
     wasm_bindgen_futures::spawn_local(async move {
         phantom_copy.auto_connect().await.unwrap();
     });
 
-    BUTTON_LISTENERS.with(|button_listeners| {
-        *button_listeners.borrow_mut() = Some(ButtonListeners {
-            connect: register_connect_btn(&phantom_wallet),
-        });
+    let phantom_copy = phantom_wallet.clone();
+
+    wasm_bindgen_futures::spawn_local(async move {
+        loop {
+            if let Some(ev) = phantom_copy.event_emitter().recv().await {
+                use wallet_adapter_base::WalletAdapterEvent::*;
+                match ev {
+                    Connect(pubkey) => {
+                        console_log("Wallet connected");
+                        set_public_key(&pubkey.to_string());
+                    }
+                    Disconnect => {
+                        console_log("Wallet disconnected");
+                        set_public_key("");
+                    }
+                    Error(wallet_error) => {
+                        console_log(format!("Wallet error: {:?}", wallet_error).as_str());
+                    }
+                    ReadyStateChange(wallet_ready_state) => {
+                        console_log(
+                            format!("Wallet ready state: {:?}", wallet_ready_state).as_str(),
+                        );
+                    }
+                }
+            }
+        }
     });
 
     // render
@@ -94,9 +150,12 @@ pub fn main() {
     let g = f.clone();
 
     *g.borrow_mut() = Some(Closure::new(move || {
-        if let Some(public_key) = phantom_wallet.public_key() {
-            set_public_key(public_key.to_string().as_str());
-        }
+        // if let Some(public_key) = phantom_wallet.public_key() {
+        //     set_public_key(public_key.to_string().as_str());
+        // }
+        // if let Ok(t) = phantom_copy.rx.try_recv() {
+        //     console_log(format!("Wallet event: {:?}", t).as_str());
+        // }
         request_animation_frame(f.borrow().as_ref().unwrap());
     }));
 
