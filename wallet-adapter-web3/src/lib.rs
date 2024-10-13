@@ -7,8 +7,8 @@ use solana_sdk::{
     commitment_config::CommitmentLevel, hash::Hash, pubkey::Pubkey, signature::Signature,
 };
 
-#[async_trait::async_trait]
-pub trait Connection: Send + Sync {
+#[allow(async_fn_in_trait)]
+pub trait Connection {
     async fn get_recent_blockhash(
         &self,
         commitment: Option<CommitmentLevel>,
@@ -99,59 +99,50 @@ impl VersionedTransaction {
         self.sdk_transaction.version()
     }
 
+    pub fn serialize(&self) -> Result<Vec<u8>> {
+        Ok(bincode::serialize(&self)?)
+    }
+
     pub fn sign(&mut self, _signers: &[Signer]) {
         todo!();
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Transaction {
-    fee_payer: Option<Pubkey>,
-    recent_block_hash: Option<Hash>,
-    pub sdk_transaction: solana_sdk::transaction::Transaction,
-}
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use solana_sdk::{instruction::Instruction, signature::Keypair, transaction::Transaction};
 
-impl Transaction {
-    pub fn new(sdk_transaction: solana_sdk::transaction::Transaction) -> Self {
-        Self {
-            fee_payer: None,
-            recent_block_hash: None,
-            sdk_transaction,
-        }
-    }
+    use super::*;
 
-    pub fn set_fee_payer(&mut self, fee_payer: Pubkey) {
-        self.fee_payer = Some(fee_payer);
-    }
+    #[test]
+    fn test_instruction() -> Result<()> {
+        let idl_bytes =
+            include_bytes!("../../examples/all-wallets-base-ui/test_data/anchor_playground.json");
+        let idl = anchor_lang_idl::convert::convert_idl(idl_bytes).unwrap();
 
-    pub fn fee_payer(&self) -> Option<Pubkey> {
-        self.fee_payer
-    }
+        let program_id: Pubkey = idl.address.parse().unwrap();
 
-    pub fn recent_block_hash(&self) -> Option<Hash> {
-        self.recent_block_hash
-    }
+        let data = idl.instructions[0].discriminator.clone();
+        let instruction = Instruction::new_with_bytes(program_id, &data, vec![]);
 
-    pub fn set_recent_block_hash(&mut self, recent_block_hash: Hash) {
-        self.recent_block_hash = Some(recent_block_hash);
-    }
+        let blockhash = "2AqazpAqDQJYACzBnJ1PZTp681zUYshU33Jcap3BHySi";
 
-    pub fn sign(&mut self, signers: &[Signer]) -> Result<()> {
-        self.sdk_transaction.partial_sign(
-            signers,
-            self.recent_block_hash
-                .context("recent block hash not set")?,
-        );
+        let payer: Pubkey = "8ZR5P5Xr7uJc6qG4dFseMaoRuNZQiZ4i8ycWqPWxy7Vw".parse()?;
 
-        Ok(())
-    }
+        let mut tx = Transaction::new_unsigned(solana_sdk::message::Message::new(
+            &[instruction],
+            Some(&payer),
+        ));
 
-    pub fn partial_sign(&mut self, signers: &[Signer]) -> Result<()> {
-        self.sdk_transaction.partial_sign(
-            signers,
-            self.recent_block_hash
-                .context("recent block hash not set")?,
-        );
+        tx.message.recent_blockhash = blockhash.parse()?;
+        tx.signatures = vec![Signature::default()];
+
+        let expected_tx_hex = "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000102704f9ddd8c7fb1999e8b487b63d08381eefdd2f2fd740f478227558481636436d995c11a1c4d39d995b2ec1c0ef6910737bb8dbcb9bd5b13563887be368522f91160d9ca64f164ebfefdc52e706945b2145e5462c3bef714c4fdb97343f71b5301010008afaf6d1f0d989bed";
+
+        let tx_hex = hex::encode(&bincode::serialize(&tx)?);
+
+        assert_eq!(tx_hex, expected_tx_hex);
 
         Ok(())
     }

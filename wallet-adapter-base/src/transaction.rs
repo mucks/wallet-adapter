@@ -1,11 +1,11 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use solana_sdk::transaction::TransactionVersion;
-use wallet_adapter_web3::{Transaction, VersionedTransaction};
+use solana_sdk::transaction::{Transaction, TransactionVersion};
+use wallet_adapter_web3::VersionedTransaction;
 
 pub type SupportedTransactionVersions = Vec<TransactionVersion>;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TransactionOrVersionedTransaction {
     Transaction(Transaction),
     VersionedTransaction(VersionedTransaction),
@@ -14,5 +14,12 @@ pub enum TransactionOrVersionedTransaction {
 impl TransactionOrVersionedTransaction {
     pub fn is_versioned(&self) -> bool {
         matches!(self, Self::VersionedTransaction(_))
+    }
+
+    pub fn serialize(&self) -> Result<Vec<u8>> {
+        Ok(match self {
+            Self::Transaction(tx) => bincode::serialize(&tx)?,
+            Self::VersionedTransaction(tx) => bincode::serialize(&tx)?,
+        })
     }
 }

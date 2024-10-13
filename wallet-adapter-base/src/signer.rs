@@ -28,21 +28,33 @@ pub trait BaseSignerWalletAdapter: BaseWalletAdapter {
                     .prepare_transaction(tx, &connection, Some(send_options))
                     .await?;
 
-                tx.sdk_transaction
-                    .partial_sign(&signers, tx.recent_block_hash().unwrap());
+                tx.partial_sign(&signers, tx.message.recent_blockhash);
 
                 let tx = self
                     .sign_transaction(TransactionOrVersionedTransaction::Transaction(tx))
                     .await?;
 
+                let TransactionOrVersionedTransaction::Transaction(tx) = tx else {
+                    return Err(crate::WalletError::WalletSendTransactionError(
+                        "Expected Transaction".to_string(),
+                    ));
+                };
+
                 let raw_tx = bincode::serialize(&tx)?;
 
                 return Ok(connection.send_raw_transaction(raw_tx, options).await?);
             }
-            TransactionOrVersionedTransaction::VersionedTransaction(ref tx) => {
+            TransactionOrVersionedTransaction::VersionedTransaction(ref _tx) => {
                 self.check_if_transaction_is_supported(&transaction)?;
 
                 let tx = self.sign_transaction(transaction).await?;
+
+                let TransactionOrVersionedTransaction::VersionedTransaction(tx) = tx else {
+                    return Err(crate::WalletError::WalletSendTransactionError(
+                        "Expected VersionedTransaction".to_string(),
+                    ));
+                };
+
                 let raw_tx = bincode::serialize(&tx)?;
 
                 return Ok(connection.send_raw_transaction(raw_tx, options).await?);

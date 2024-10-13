@@ -1,12 +1,12 @@
 //! taken from https://github.com/anza-xyz/wallet-adapter/blob/master/packages/core/base/src/adapter.ts
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use solana_sdk::hash::Hash;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::transaction;
-use solana_sdk::{message::TransactionSignatureDetails, signature::Signature};
-use wallet_adapter_web3::{Connection, SendOptions, Signer};
-use wallet_adapter_web3::{SendTransactionOptions, Transaction};
+use solana_sdk::signature::Signature;
+use solana_sdk::transaction::Transaction;
+use wallet_adapter_web3::SendTransactionOptions;
+use wallet_adapter_web3::{Connection, SendOptions};
 
 use crate::transaction::{SupportedTransactionVersions, TransactionOrVersionedTransaction};
 use crate::WalletError;
@@ -76,6 +76,7 @@ pub enum WalletReadyState {
     Unsupported,
 }
 
+#[allow(async_fn_in_trait)]
 pub trait BaseWalletAdapter {
     fn event_emitter(&self) -> WalletAdapterEventEmitter;
     fn name(&self) -> String;
@@ -114,18 +115,18 @@ pub trait BaseWalletAdapter {
             return Err(crate::WalletError::WalletNotConnected);
         };
 
-        if transaction.fee_payer().is_none() {
-            transaction.set_fee_payer(public_key);
+        if transaction.message.signer_keys().is_empty() {
+            transaction.message.account_keys.push(public_key);
         }
 
-        if transaction.recent_block_hash().is_none() {
+        if transaction.message.recent_blockhash == Hash::default() {
             let blockhash = connection
                 .get_recent_blockhash(
                     options.map(|o| o.preflight_commitment).flatten(),
                     options.map(|o| o.min_context_slots).flatten(),
                 )
                 .await?;
-            transaction.set_recent_block_hash(blockhash);
+            transaction.message.recent_blockhash = blockhash;
         }
 
         Ok(transaction)

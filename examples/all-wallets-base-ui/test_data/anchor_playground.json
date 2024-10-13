@@ -1,0 +1,26 @@
+{
+  "address": "FeMv1J2sekHZUpaRmaJYYhABZ6EKADD6bG3MCs2f8HH2",
+  "metadata": {
+    "name": "anchor_playground",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [],
+      "args": []
+    }
+  ]
+}

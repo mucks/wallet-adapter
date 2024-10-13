@@ -2,13 +2,36 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Result};
 use js_sys::{Atomics::wait_async_with_timeout_bigint, Object};
-use solana_sdk::{pubkey::Pubkey, transaction::TransactionVersion};
+use solana_sdk::{bs58, pubkey::Pubkey, transaction::TransactionVersion};
 use wallet_adapter_base::{
     BaseWalletAdapter, SupportedTransactionVersions, TransactionOrVersionedTransaction,
     WalletAdapterEvent, WalletAdapterEventEmitter, WalletError, WalletReadyState,
 };
+use wasm_bindgen::prelude::*;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use web_sys::{console, Window};
+
+#[wasm_bindgen(inline_js = "
+    export async function sign_and_send_raw_transaction(wallet, message) {
+        
+        console.log('message', message);
+
+        const { signature } = await wallet.request({
+            method: 'signAndSendTransaction',
+            params: {
+                message: message,
+            },
+        });
+
+        return signature;
+    }")]
+extern "C" {
+    #[wasm_bindgen(catch)]
+    async fn sign_and_send_raw_transaction(
+        wallet: &JsValue,
+        message: &str,
+    ) -> std::result::Result<JsValue, JsValue>;
+}
 
 fn console_log(msg: &str) {
     web_sys::console::log_1(&msg.into());
@@ -72,10 +95,12 @@ pub struct PhantomWallet(Object);
 
 impl PhantomWallet {
     pub fn from_window(window: Window) -> Result<Self> {
-        let solana = window
-            .get("solana")
-            .context("could not get solana object")?;
-        Ok(Self(solana))
+        let phantom = window
+            .get("phantom")
+            .context("could not get phantom object")?;
+
+        let solana = reflect_get(&phantom, &JsValue::from_str("solana"))?;
+        Ok(Self(solana.into()))
     }
 
     pub fn is_phantom(&self) -> Result<bool> {
@@ -175,26 +200,38 @@ impl PhantomWallet {
         Ok(())
     }
 
+    // docs found here: https://docs.phantom.app/solana/sending-a-transaction
     pub async fn sign_and_send_transaction(
         &self,
         transaction: TransactionOrVersionedTransaction,
     ) -> Result<solana_sdk::signature::Signature> {
-        let tx_json = serde_json::to_string(&transaction)?;
+        let tx_bytes = transaction.serialize()?;
+        let tx_bs58 = bs58::encode(tx_bytes).into_string();
 
-        let sign_and_send_transaction: js_sys::Function =
-            reflect_get(&self.0, &JsValue::from_str("signAndSendTransaction"))?.into();
+        console_log(&format!("tx_bs58: {}", tx_bs58));
 
-        let resp = sign_and_send_transaction
-            .call1(&self.0, &JsValue::from_str(&tx_json))
-            .map_err(|err| anyhow!("{:?}", err))?;
+        let resp = sign_and_send_raw_transaction(&self.0, &tx_bs58)
+            .await
+            .map_err(|err| {
+                console_log("IT FAILS HERE 0!");
+                console_log(&format!("{:?}", err));
+                anyhow!("{:?}", err)
+            })?;
 
         let promise = js_sys::Promise::resolve(&resp);
-
         let result = wasm_bindgen_futures::JsFuture::from(promise)
             .await
-            .map_err(|err| anyhow!("{err:?}"))?;
+            .map_err(|err| {
+                console_log("IT FAILS HERE!");
+                console_log(&format!("{:?}", err));
+                anyhow!("{err:?}")
+            })?;
+
+        console_log("|||| HAPPENS ||||");
 
         let result_as_str = result.as_string().context("result is not a string")?;
+
+        console_log(&format!("result: {}", result_as_str));
 
         Ok(result_as_str.parse()?)
     }
@@ -509,7 +546,7 @@ impl BaseWalletAdapter for PhantomWalletAdapter {
 
                 if let Some(opt) = options {
                     if opt.signers.len() > 0 {
-                        tx.partial_sign(&opt.signers)?;
+                        tx.partial_sign(&opt.signers, tx.message.recent_blockhash);
                     }
                 }
             }

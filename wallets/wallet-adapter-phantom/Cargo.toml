@@ -11,9 +11,11 @@ wallet-adapter-web3.workspace = true
 # crates.io
 anyhow.workspace = true
 async-trait.workspace = true
+bincode.workspace = true
 js-sys.workspace = true
 log.workspace = true
 serde_json.workspace = true
+serde-wasm-bindgen.workspace = true
 solana-sdk.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 wasm-bindgen.workspace = true
