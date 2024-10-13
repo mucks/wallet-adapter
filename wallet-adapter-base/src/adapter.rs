@@ -115,6 +115,7 @@ pub trait BaseWalletAdapter {
             return Err(crate::WalletError::WalletNotConnected);
         };
 
+        // TODO: double check if this works and makes sense
         if transaction.message.signer_keys().is_empty() {
             transaction.message.account_keys.push(public_key);
         }

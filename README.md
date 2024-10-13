@@ -4,5 +4,12 @@ Modular Rust wallet adapter and components for Rust applications.
 
 ## Roadmap
 
-- [ ] support phantom wallet browser
-- [ ] support solflare wallet
+### ui
+- [x] simple base ui for testing
+- [ ] leptos ui
+- [ ] bevy
+
+### wallets
+- [x] support phantom wallet
+- [ ] burner wallet
+- [ ] support solflare wallet 

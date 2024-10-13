@@ -14,6 +14,7 @@ async-trait.workspace = true
 bincode.workspace = true
 js-sys.workspace = true
 log.workspace = true
+serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 serde-wasm-bindgen.workspace = true
 solana-sdk.workspace = true

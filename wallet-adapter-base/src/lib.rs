@@ -8,4 +8,5 @@ pub use adapter::WalletAdapterEvent;
 pub use adapter::WalletAdapterEventEmitter;
 pub use adapter::WalletReadyState;
 pub use error::{Result, WalletError};
+pub use signer::{BaseMessageSignerWalletAdapter, BaseSignerWalletAdapter};
 pub use transaction::{SupportedTransactionVersions, TransactionOrVersionedTransaction};

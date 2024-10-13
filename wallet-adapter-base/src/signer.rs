@@ -1,13 +1,10 @@
-use serde::Serialize;
-use solana_sdk::{
-    signature::Signature,
-    transaction::{self, VersionedTransaction},
-};
+use solana_sdk::signature::Signature;
 use wallet_adapter_web3::{Connection, SendTransactionOptions};
 
 use crate::{adapter::BaseWalletAdapter, transaction::TransactionOrVersionedTransaction};
 use anyhow::{Context, Result};
 
+#[allow(async_fn_in_trait)]
 pub trait BaseSignerWalletAdapter: BaseWalletAdapter {
     async fn send_transaction(
         &self,

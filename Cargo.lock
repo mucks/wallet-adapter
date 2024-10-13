@@ -1784,6 +1784,7 @@ dependencies = [
  "bincode",
  "js-sys",
  "log",
+ "serde",
  "serde-wasm-bindgen",
  "serde_json",
  "solana-sdk",

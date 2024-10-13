@@ -92,8 +92,8 @@ impl Connection for WasmConnection {
 
     async fn send_raw_transaction(
         &self,
-        raw_transaction: Vec<u8>,
-        options: Option<SendTransactionOptions>,
+        _raw_transaction: Vec<u8>,
+        _options: Option<SendTransactionOptions>,
     ) -> Result<Signature> {
         console_log("||| send_raw_transaction |||");
         todo!()
@@ -101,9 +101,9 @@ impl Connection for WasmConnection {
 }
 
 struct ButtonListeners {
-    connect: Closure<dyn FnMut()>,
-    disconnect: Closure<dyn FnMut()>,
-    send_tx: Closure<dyn FnMut()>,
+    _connect: Closure<dyn FnMut()>,
+    _disconnect: Closure<dyn FnMut()>,
+    _send_tx: Closure<dyn FnMut()>,
 }
 
 thread_local! {
@@ -265,9 +265,9 @@ pub fn main() {
 
     BUTTON_LISTENERS.with(|button_listeners| {
         *button_listeners.borrow_mut() = Some(ButtonListeners {
-            connect: register_connect_btn(&phantom_wallet),
-            disconnect: register_disconnect_btn(&phantom_wallet),
-            send_tx: register_send_tx_btn(&phantom_wallet),
+            _connect: register_connect_btn(&phantom_wallet),
+            _disconnect: register_disconnect_btn(&phantom_wallet),
+            _send_tx: register_send_tx_btn(&phantom_wallet),
         });
     });
 
@@ -285,6 +285,7 @@ pub fn main() {
                 match ev {
                     Connect(pubkey) => {
                         console_log("Wallet connected");
+                        console_log(&format!("is connected: {}", phantom_copy.connected()));
                         set_public_key(&pubkey.to_string());
                     }
                     Disconnect => {

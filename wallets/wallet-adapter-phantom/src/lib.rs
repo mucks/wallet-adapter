@@ -1,15 +1,99 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Result};
-use js_sys::{Atomics::wait_async_with_timeout_bigint, Object};
+use serde::{Deserialize, Serialize};
 use solana_sdk::{bs58, pubkey::Pubkey, transaction::TransactionVersion};
 use wallet_adapter_base::{
     BaseWalletAdapter, SupportedTransactionVersions, TransactionOrVersionedTransaction,
     WalletAdapterEvent, WalletAdapterEventEmitter, WalletError, WalletReadyState,
 };
+use wallet_binding::solana;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
-use web_sys::{console, Window};
+use web_sys::Window;
+
+mod wallet_binding {
+    use super::*;
+
+    // PhantomRequestResponse
+    #[wasm_bindgen]
+    extern "C" {
+        #[wasm_bindgen]
+        #[derive(Clone, Debug)]
+        pub type PhantomRequestResponse;
+
+        #[wasm_bindgen(method, getter)]
+        pub fn signature(this: &PhantomRequestResponse) -> Option<String>;
+    }
+
+    // PhantomError
+    #[wasm_bindgen]
+    extern "C" {
+        #[wasm_bindgen]
+        #[derive(Clone, Debug)]
+        pub type PhantomError;
+
+        #[wasm_bindgen(method, getter)]
+        pub fn message(this: &PhantomError) -> Option<String>;
+    }
+
+    // Pubkey
+    #[wasm_bindgen]
+    extern "C" {
+        #[wasm_bindgen]
+        #[derive(Clone, Debug)]
+        pub type Pubkey;
+
+        #[wasm_bindgen(method, js_name = toBytes)]
+        pub fn to_bytes(this: &Pubkey) -> Vec<u8>;
+
+    }
+
+    // Phantom
+    #[wasm_bindgen]
+    extern "C" {
+        #[wasm_bindgen(thread_local, js_namespace = window, js_name = solana)]
+        pub static SOLANA: Solana;
+
+        #[wasm_bindgen]
+        #[derive(Clone)]
+        pub type Solana;
+
+        #[wasm_bindgen(method, catch)]
+        pub async fn connect(
+            this: &Solana,
+            options: &JsValue,
+        ) -> std::result::Result<JsValue, PhantomError>;
+
+        #[wasm_bindgen(method, getter, js_name = publicKey)]
+        pub fn public_key(this: &Solana) -> Pubkey;
+
+        #[wasm_bindgen(method, getter, js_name = isPhantom)]
+        pub fn is_phantom(this: &Solana) -> bool;
+
+        #[wasm_bindgen(method, getter, js_name = isConnected)]
+        pub fn is_connected(this: &Solana) -> bool;
+
+        #[wasm_bindgen(method, catch)]
+        pub fn disconnect(this: &Solana) -> std::result::Result<(), PhantomError>;
+
+        #[wasm_bindgen(method, catch)]
+        pub async fn request(
+            this: &Solana,
+            options: &JsValue,
+        ) -> std::result::Result<PhantomRequestResponse, PhantomError>;
+
+        #[wasm_bindgen(method)]
+        pub fn on(this: &Solana, event: &str, cb: &js_sys::Function);
+        #[wasm_bindgen(method)]
+        pub fn off(this: &Solana, event: &str, cb: &js_sys::Function);
+
+    }
+
+    pub fn solana() -> Solana {
+        SOLANA.with(|solana| solana.clone())
+    }
+}
 
 #[wasm_bindgen(inline_js = "
     export async function sign_and_send_raw_transaction(wallet, message) {
@@ -43,13 +127,6 @@ fn is_ios_redirectable() -> Result<bool> {
     Ok(false)
 }
 
-// TODO: move this to a wasm shared crate
-fn reflect_get(target: &JsValue, key: &JsValue) -> Result<JsValue> {
-    let result = js_sys::Reflect::get(target, key).map_err(|e| anyhow!("{:?}", e))?;
-    log::debug!("reflect_get: {:?}", result);
-    Ok(result)
-}
-
 // TODO: improve this function and put it into shared crate
 async fn sleep_ms(millis: i32) {
     let mut cb = |resolve: js_sys::Function, _reject: js_sys::Function| {
@@ -77,89 +154,46 @@ impl From<anyhow::Error> for PhantomConnectError {
     }
 }
 
-fn js_public_key_to_public_key(public_key: js_sys::Object) -> Result<Pubkey> {
-    let to_bytes: js_sys::Function =
-        reflect_get(&public_key, &JsValue::from_str("toBytes"))?.into();
-
-    let bytes = to_bytes
-        .call0(&public_key)
-        .map_err(|err| anyhow!("{:?}", err))?;
-
-    let bytes = js_sys::Uint8Array::new(&bytes).to_vec();
-
-    Ok(bytes.try_into().map_err(|e| anyhow!("{e:?}"))?)
-}
-
 #[derive(Debug, Clone, PartialEq)]
-pub struct PhantomWallet(Object);
+pub struct PhantomWallet;
 
 impl PhantomWallet {
-    pub fn from_window(window: Window) -> Result<Self> {
-        let phantom = window
-            .get("phantom")
-            .context("could not get phantom object")?;
-
-        let solana = reflect_get(&phantom, &JsValue::from_str("solana"))?;
-        Ok(Self(solana.into()))
-    }
-
     pub fn is_phantom(&self) -> Result<bool> {
-        reflect_get(&self.0, &JsValue::from_str("isPhantom"))?
-            .as_bool()
-            .context("isConnected is not a bool")
+        Ok(solana().is_phantom())
     }
 
     pub fn is_connected(&self) -> Result<bool> {
-        reflect_get(&self.0, &JsValue::from_str("isConnected"))?
-            .as_bool()
-            .context("isConnected is not a bool")
+        Ok(solana().is_connected())
     }
 
     pub fn disconnect(&self) -> std::result::Result<(), (String, String)> {
-        let on: js_sys::Function = reflect_get(&self.0, &JsValue::from_str("disconnect"))
-            .unwrap()
-            .into();
-        on.call0(&self.0).map_err(|err| {
-            let debug_err = format!("{:?}", err);
+        solana().disconnect().map_err(|err| {
+            let msg = match err.message() {
+                Some(msg) => msg,
+                None => "Unknown error".to_string(),
+            };
 
-            if let Some(message) = reflect_get(&err, &JsValue::from_str("message"))
-                .ok()
-                .and_then(|msg| msg.as_string())
-            {
-                (message, debug_err)
-            } else {
-                ("Unknown error".to_string(), debug_err)
-            }
+            (msg, format!("{:?}", err))
         })?;
         Ok(())
     }
 
     pub fn on(&self, event: &str, cb: js_sys::Function) -> Result<()> {
-        let on: js_sys::Function = reflect_get(&self.0, &JsValue::from_str("on"))?.into();
-        on.call2(&self.0, &JsValue::from_str(event), &cb)
-            .map_err(|err| anyhow!("{:?}", err))?;
+        solana().on(event, &cb);
         Ok(())
     }
 
     pub fn off(&self, event: &str, cb: js_sys::Function) -> Result<()> {
-        let on: js_sys::Function = reflect_get(&self.0, &JsValue::from_str("off"))?.into();
-        on.call2(&self.0, &JsValue::from_str(event), &cb)
-            .map_err(|err| anyhow!("{:?}", err))?;
+        solana().off(event, &cb);
         Ok(())
     }
 
     pub fn public_key(&self) -> Result<Pubkey> {
         console_log("public_key");
 
-        let public_key = reflect_get(&self.0, &JsValue::from_str("publicKey"))?;
-        let to_bytes: js_sys::Function =
-            reflect_get(&public_key, &JsValue::from_str("toBytes"))?.into();
+        let public_key = solana().public_key();
 
-        let bytes = to_bytes
-            .call0(&public_key)
-            .map_err(|err| anyhow!("{:?}", err))?;
-
-        let bytes = js_sys::Uint8Array::new(&bytes).to_vec();
+        let bytes = public_key.to_bytes();
 
         Ok(bytes.try_into().map_err(|e| anyhow!("{e:?}"))?)
     }
@@ -167,33 +201,17 @@ impl PhantomWallet {
     pub async fn connect(&self) -> std::result::Result<(), PhantomConnectError> {
         console_log("phantom wallet connect");
 
-        let connect_str = wasm_bindgen::JsValue::from_str("connect");
-        let connect: js_sys::Function = reflect_get(&self.0, &connect_str)?.into();
+        let result = solana().connect(&JsValue::NULL).await.map_err(|err| {
+            let msg = match err.message() {
+                Some(msg) => msg,
+                None => "Unknown error".to_string(),
+            };
 
-        log::debug!("{:?}", connect.to_string());
-
-        let resp = connect.call0(&self.0).map_err(|err| {
-            if let Some(message) = reflect_get(&err, &JsValue::from_str("message"))
-                .ok()
-                .and_then(|msg| msg.as_string())
-            {
-                PhantomConnectError {
-                    message: Some(message),
-                    error: "connect error".to_string(),
-                }
-            } else {
-                PhantomConnectError {
-                    message: None,
-                    error: "connect error".to_string(),
-                }
+            PhantomConnectError {
+                message: Some(msg),
+                error: format!("{:?}", err),
             }
         })?;
-
-        let promise = js_sys::Promise::resolve(&resp);
-
-        let result = wasm_bindgen_futures::JsFuture::from(promise)
-            .await
-            .map_err(|err| anyhow!("{err:?}"))?;
 
         log::debug!("{:?}", result);
 
@@ -210,48 +228,37 @@ impl PhantomWallet {
 
         console_log(&format!("tx_bs58: {}", tx_bs58));
 
-        let resp = sign_and_send_raw_transaction(&self.0, &tx_bs58)
+        let req = PhantomRequest {
+            method: "signAndSendTransaction".to_string(),
+            params: PhantomRequestParams { message: tx_bs58 },
+        };
+
+        let js_value = serde_wasm_bindgen::to_value(&req).map_err(|e| anyhow!("{:?}", e))?;
+
+        console_log(&format!("js_value: {:?}", js_value));
+
+        let resp = solana()
+            .request(&js_value)
             .await
-            .map_err(|err| {
-                console_log("IT FAILS HERE 0!");
-                console_log(&format!("{:?}", err));
-                anyhow!("{:?}", err)
-            })?;
+            .map_err(|err| anyhow!("{:?}", err))?;
 
-        let promise = js_sys::Promise::resolve(&resp);
-        let result = wasm_bindgen_futures::JsFuture::from(promise)
-            .await
-            .map_err(|err| {
-                console_log("IT FAILS HERE!");
-                console_log(&format!("{:?}", err));
-                anyhow!("{err:?}")
-            })?;
+        let signature = resp.signature().context("signature not found")?;
 
-        console_log("|||| HAPPENS ||||");
+        console_log(&format!("result: {}", signature));
 
-        let result_as_str = result.as_string().context("result is not a string")?;
-
-        console_log(&format!("result: {}", result_as_str));
-
-        Ok(result_as_str.parse()?)
+        Ok(signature.parse()?)
     }
 }
 
-fn window() -> Result<Window> {
-    web_sys::window().context("could not get window")
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhantomRequest {
+    pub method: String,
+    pub params: PhantomRequestParams,
 }
 
-fn is_phantom() -> Result<bool> {
-    if let Some(solana) = get_wallet_object()? {
-        let is_phantom = reflect_get(&solana, &JsValue::from_str("isPhantom"))?;
-        return Ok(is_phantom.is_truthy());
-    }
-
-    Ok(false)
-}
-
-fn get_wallet_object() -> Result<Option<js_sys::Object>> {
-    Ok(window()?.get("solana"))
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhantomRequestParams {
+    pub message: String,
 }
 
 fn set_phantom_url(window: Window) -> std::result::Result<(), JsValue> {
@@ -272,7 +279,7 @@ pub struct PhantomWalletAdapter {
     wallet: Arc<Mutex<Option<PhantomWallet>>>,
     public_key: Arc<Mutex<Option<Pubkey>>>,
     wallet_ready_state: Arc<Mutex<WalletReadyState>>,
-    account_changed_closure: Arc<Mutex<Option<Closure<dyn FnMut(js_sys::Object)>>>>,
+    account_changed_closure: Arc<Mutex<Option<Closure<dyn FnMut(wallet_binding::Pubkey)>>>>,
     disconnected_closure: Arc<Mutex<Option<Closure<dyn FnMut()>>>>,
     event_emitter: WalletAdapterEventEmitter,
 }
@@ -299,7 +306,7 @@ impl PhantomWalletAdapter {
                 // TODO: make this waiting loop a shared logic
                 wasm_bindgen_futures::spawn_local(async move {
                     for _i in 0..60 {
-                        if let Ok(true) = is_phantom() {
+                        if solana().is_phantom() {
                             self_clone.set_ready_state(WalletReadyState::Installed);
                             self_clone
                                 .event_emitter
@@ -347,11 +354,11 @@ impl PhantomWalletAdapter {
             return f.clone();
         } else {
             let self_clone = self.clone();
-            let closure = Closure::wrap(Box::new(move |pubkey: js_sys::Object| {
+            let closure = Closure::wrap(Box::new(move |pubkey: wallet_binding::Pubkey| {
                 // disconnected code here
                 console_log(&format!("account changed: {pubkey:?}"));
 
-                let public_key = js_public_key_to_public_key(pubkey).unwrap();
+                let public_key: Pubkey = pubkey.to_bytes().try_into().unwrap();
 
                 if self_clone.public_key() == Some(public_key) {
                     return;
@@ -362,7 +369,7 @@ impl PhantomWalletAdapter {
                     .event_emitter
                     .emit_sync(WalletAdapterEvent::Connect(public_key))
                     .unwrap();
-            }) as Box<dyn FnMut(js_sys::Object)>);
+            }) as Box<dyn FnMut(wallet_binding::Pubkey)>);
             let f: &js_sys::Function = closure.as_ref().unchecked_ref();
             let f = f.clone();
             *account_changed = Some(closure);
@@ -404,7 +411,7 @@ impl PhantomWalletAdapter {
 
         self.set_connecting(true);
 
-        let wallet = PhantomWallet::from_window(window()?)?;
+        let wallet = PhantomWallet;
 
         if !wallet.is_connected()? {
             match wallet.connect().await {

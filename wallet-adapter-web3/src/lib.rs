@@ -1,7 +1,7 @@
 //! types that the solana wallet adapter uses
 //! `solana-sdk` doesn't have all the types the `web3.js` has so we need to define our own
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{
     commitment_config::CommitmentLevel, hash::Hash, pubkey::Pubkey, signature::Signature,
@@ -53,7 +53,7 @@ impl solana_sdk::signature::Signer for Signer {
 
     fn try_sign_message(
         &self,
-        message: &[u8],
+        _message: &[u8],
     ) -> std::result::Result<Signature, solana_sdk::signer::SignerError> {
         todo!()
     }
@@ -111,7 +111,7 @@ impl VersionedTransaction {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use solana_sdk::{instruction::Instruction, signature::Keypair, transaction::Transaction};
+    use solana_sdk::{instruction::Instruction, transaction::Transaction};
 
     use super::*;
 

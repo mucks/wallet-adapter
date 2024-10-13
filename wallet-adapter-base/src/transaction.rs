@@ -1,5 +1,4 @@
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use solana_sdk::transaction::{Transaction, TransactionVersion};
 use wallet_adapter_web3::VersionedTransaction;
 
