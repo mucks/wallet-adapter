@@ -11,6 +11,7 @@ use solana_sdk::transaction::Transaction;
 use solana_sdk::{commitment_config::CommitmentLevel, signature::Signature};
 use wallet_adapter_base::{BaseWalletAdapter, TransactionOrVersionedTransaction};
 use wallet_adapter_phantom::PhantomWalletAdapter;
+use wallet_adapter_unsafe_burner::UnsafeBurnerWallet;
 use wallet_adapter_web3::{Connection, SendTransactionOptions};
 use wasm_bindgen::prelude::*;
 
@@ -66,6 +67,7 @@ const DEVNET_URL: &str = "https://api.devnet.solana.com";
 
 struct WasmConnection {}
 
+#[async_trait::async_trait(?Send)]
 impl Connection for WasmConnection {
     async fn get_recent_blockhash(
         &self,
@@ -108,7 +110,7 @@ struct ButtonListeners {
 
 thread_local! {
     static BUTTON_LISTENERS: RefCell<Option<ButtonListeners>> = RefCell::new(None);
-    static WALLET_ADAPTER: RefCell<Option<PhantomWalletAdapter>> = RefCell::new(None);
+    static WALLET_ADAPTER: RefCell<Option<Box<dyn BaseWalletAdapter>>> = RefCell::new(None);
 }
 
 use wasm_bindgen_futures::spawn_local;
@@ -213,16 +215,21 @@ pub fn register_send_tx_btn(wallet_adapter: &PhantomWalletAdapter) -> Closure<dy
 
             let connection = WasmConnection {};
 
-            let tx_sig = wallet_adapter
+            match wallet_adapter
                 .send_transaction(
                     TransactionOrVersionedTransaction::Transaction(tx),
-                    connection,
+                    &connection,
                     None,
                 )
                 .await
-                .unwrap();
-
-            console_log(format!("tx_sig: {:?}", tx_sig).as_str());
+            {
+                Ok(sig) => {
+                    console_log(format!("tx_sig: {:?}", sig).as_str());
+                }
+                Err(e) => {
+                    console_log(format!("error: {:?}", e).as_str());
+                }
+            };
         });
     }) as Box<dyn FnMut()>);
 
@@ -261,6 +268,12 @@ fn request_animation_frame(f: &Closure<dyn FnMut()>) {
 
 #[wasm_bindgen(main)]
 pub fn main() {
+    let phantom_wallet = PhantomWalletAdapter::new().unwrap();
+    let unsafe_burner_wallet = UnsafeBurnerWallet::new();
+
+    let _wallets: Vec<Box<dyn BaseWalletAdapter>> =
+        vec![Box::new(phantom_wallet), Box::new(unsafe_burner_wallet)];
+
     let phantom_wallet = PhantomWalletAdapter::new().unwrap();
 
     BUTTON_LISTENERS.with(|button_listeners| {

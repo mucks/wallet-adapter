@@ -76,7 +76,7 @@ pub enum WalletReadyState {
     Unsupported,
 }
 
-#[allow(async_fn_in_trait)]
+#[async_trait::async_trait(?Send)]
 pub trait BaseWalletAdapter {
     fn event_emitter(&self) -> WalletAdapterEventEmitter;
     fn name(&self) -> String;
@@ -91,24 +91,24 @@ pub trait BaseWalletAdapter {
         self.public_key().is_some()
     }
 
+    async fn disconnect(&self) -> Result<()>;
     async fn auto_connect(&mut self) -> crate::Result<()> {
         self.connect().await
     }
 
     async fn connect(&mut self) -> crate::Result<()>;
-    async fn disconnect(&self) -> Result<()>;
 
     async fn send_transaction(
         &self,
         transaction: TransactionOrVersionedTransaction,
-        connection: impl Connection,
+        connection: &dyn Connection,
         options: Option<SendTransactionOptions>,
     ) -> crate::Result<Signature>;
 
     async fn prepare_transaction(
         &self,
         mut transaction: Transaction,
-        connection: &impl Connection,
+        connection: &dyn Connection,
         options: Option<SendOptions>,
     ) -> crate::Result<Transaction> {
         let Some(public_key) = self.public_key() else {
@@ -157,5 +157,15 @@ pub trait BaseWalletAdapter {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_base_wallet_adapter_trait_be_made_into_object() {
+        let _wallet_adapter: Option<Box<dyn BaseWalletAdapter>> = None;
     }
 }

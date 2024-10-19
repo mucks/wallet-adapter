@@ -19,6 +19,7 @@ wallet-adapter-web3 = { path = "./wallet-adapter-web3" }
 
 ## wallets
 wallet-adapter-phantom = { path = "./wallets/wallet-adapter-phantom" }
+wallet-adapter-unsafe-burner = { path = "./wallets/wallet-adapter-unsafe-burner" }
 
 # crates.io
 anyhow = "1"

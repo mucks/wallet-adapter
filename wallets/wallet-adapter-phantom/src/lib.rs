@@ -95,28 +95,6 @@ mod wallet_binding {
     }
 }
 
-#[wasm_bindgen(inline_js = "
-    export async function sign_and_send_raw_transaction(wallet, message) {
-        
-        console.log('message', message);
-
-        const { signature } = await wallet.request({
-            method: 'signAndSendTransaction',
-            params: {
-                message: message,
-            },
-        });
-
-        return signature;
-    }")]
-extern "C" {
-    #[wasm_bindgen(catch)]
-    async fn sign_and_send_raw_transaction(
-        wallet: &JsValue,
-        message: &str,
-    ) -> std::result::Result<JsValue, JsValue>;
-}
-
 fn console_log(msg: &str) {
     web_sys::console::log_1(&msg.into());
 }
@@ -441,6 +419,7 @@ impl PhantomWalletAdapter {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl BaseWalletAdapter for PhantomWalletAdapter {
     fn event_emitter(&self) -> WalletAdapterEventEmitter {
         self.event_emitter.clone()
@@ -534,7 +513,7 @@ impl BaseWalletAdapter for PhantomWalletAdapter {
     async fn send_transaction(
         &self,
         mut transaction: wallet_adapter_base::TransactionOrVersionedTransaction,
-        connection: impl wallet_adapter_web3::Connection,
+        connection: &dyn wallet_adapter_web3::Connection,
         options: Option<wallet_adapter_web3::SendTransactionOptions>,
     ) -> wallet_adapter_base::Result<solana_sdk::signature::Signature> {
         let opt_wallet = { self.wallet.lock().unwrap().as_ref().cloned() };
@@ -548,7 +527,7 @@ impl BaseWalletAdapter for PhantomWalletAdapter {
         match &mut transaction {
             TransactionOrVersionedTransaction::Transaction(ref mut tx) => {
                 *tx = self
-                    .prepare_transaction(tx.clone(), &connection, send_options)
+                    .prepare_transaction(tx.clone(), connection, send_options)
                     .await?;
 
                 if let Some(opt) = options {
@@ -560,7 +539,10 @@ impl BaseWalletAdapter for PhantomWalletAdapter {
             TransactionOrVersionedTransaction::VersionedTransaction(ref mut tx) => {
                 if let Some(opt) = options {
                     if opt.signers.len() > 0 {
-                        tx.sign(&opt.signers);
+                        // TODO: implement support for VersionedTransaction
+                        return Err(
+                            anyhow!("Unsupported transaction version: {:?}", tx.version()).into(),
+                        );
                     }
                 }
             }

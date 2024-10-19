@@ -2,14 +2,14 @@ use solana_sdk::signature::Signature;
 use wallet_adapter_web3::{Connection, SendTransactionOptions};
 
 use crate::{adapter::BaseWalletAdapter, transaction::TransactionOrVersionedTransaction};
-use anyhow::{Context, Result};
+use anyhow::Context;
 
-#[allow(async_fn_in_trait)]
+#[async_trait::async_trait(?Send)]
 pub trait BaseSignerWalletAdapter: BaseWalletAdapter {
     async fn send_transaction(
         &self,
         transaction: TransactionOrVersionedTransaction,
-        connection: impl Connection,
+        connection: &dyn Connection,
         options: Option<SendTransactionOptions>,
     ) -> crate::Result<Signature> {
         match transaction {
@@ -22,7 +22,7 @@ pub trait BaseSignerWalletAdapter: BaseWalletAdapter {
                     .context("Signers are required for transaction")?;
 
                 let mut tx = self
-                    .prepare_transaction(tx, &connection, Some(send_options))
+                    .prepare_transaction(tx, connection, Some(send_options))
                     .await?;
 
                 tx.partial_sign(&signers, tx.message.recent_blockhash);
@@ -62,7 +62,7 @@ pub trait BaseSignerWalletAdapter: BaseWalletAdapter {
     async fn sign_transaction(
         &self,
         transaction: TransactionOrVersionedTransaction,
-    ) -> Result<TransactionOrVersionedTransaction>;
+    ) -> crate::Result<TransactionOrVersionedTransaction>;
 
     async fn sign_all_transactions(
         &self,
@@ -80,7 +80,7 @@ pub trait BaseSignerWalletAdapter: BaseWalletAdapter {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 pub trait BaseMessageSignerWalletAdapter: BaseSignerWalletAdapter {
-    async fn sign_message(&self, message: &[u8]) -> Result<Vec<u8>>;
+    async fn sign_message(&self, message: &[u8]) -> crate::Result<Vec<u8>>;
 }

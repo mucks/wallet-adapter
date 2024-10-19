@@ -7,7 +7,7 @@ use solana_sdk::{
     commitment_config::CommitmentLevel, hash::Hash, pubkey::Pubkey, signature::Signature,
 };
 
-#[allow(async_fn_in_trait)]
+#[async_trait::async_trait(?Send)]
 pub trait Connection {
     async fn get_recent_blockhash(
         &self,
@@ -60,51 +60,6 @@ impl solana_sdk::signature::Signer for Signer {
 
     fn is_interactive(&self) -> bool {
         todo!()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VersionedTransaction {
-    fee_payer: Option<Pubkey>,
-    recent_block_hash: Option<Hash>,
-    pub sdk_transaction: solana_sdk::transaction::VersionedTransaction,
-}
-
-impl VersionedTransaction {
-    pub fn new(sdk_transaction: solana_sdk::transaction::VersionedTransaction) -> Self {
-        Self {
-            fee_payer: None,
-            recent_block_hash: None,
-            sdk_transaction,
-        }
-    }
-
-    pub fn set_fee_payer(&mut self, fee_payer: Pubkey) {
-        self.fee_payer = Some(fee_payer);
-    }
-
-    pub fn fee_payer(&self) -> Option<Pubkey> {
-        self.fee_payer
-    }
-
-    pub fn recent_block_hash(&self) -> Option<Hash> {
-        self.recent_block_hash
-    }
-
-    pub fn set_recent_block_hash(&mut self, recent_block_hash: Hash) {
-        self.recent_block_hash = Some(recent_block_hash);
-    }
-
-    pub fn version(&self) -> solana_sdk::transaction::TransactionVersion {
-        self.sdk_transaction.version()
-    }
-
-    pub fn serialize(&self) -> Result<Vec<u8>> {
-        Ok(bincode::serialize(&self)?)
-    }
-
-    pub fn sign(&mut self, _signers: &[Signer]) {
-        todo!();
     }
 }
 

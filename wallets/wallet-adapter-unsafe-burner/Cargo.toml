@@ -1,0 +1,13 @@
+[package]
+name = "wallet-adapter-unsafe-burner"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# workspace
+wallet-adapter-base.workspace = true
+wallet-adapter-web3.workspace = true
+# crates.io
+anyhow.workspace = true
+async-trait.workspace = true
+solana-sdk.workspace = true

@@ -1,6 +1,5 @@
 use anyhow::Result;
-use solana_sdk::transaction::{Transaction, TransactionVersion};
-use wallet_adapter_web3::VersionedTransaction;
+use solana_sdk::transaction::{Transaction, TransactionVersion, VersionedTransaction};
 
 pub type SupportedTransactionVersions = Vec<TransactionVersion>;
 
