@@ -6,8 +6,9 @@ use wallet_adapter_base::{
     BaseMessageSignerWalletAdapter, BaseSignerWalletAdapter, BaseWalletAdapter, WalletAdapterEvent,
     WalletAdapterEventEmitter, WalletError, WalletReadyState,
 };
+use wallet_adapter_web3::{SendOptions, SendTransactionOptions};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnsafeBurnerWallet {
     /**
      * Storing a keypair locally like this is not safe because any application using this adapter could retrieve the
@@ -102,6 +103,13 @@ impl BaseWalletAdapter for UnsafeBurnerWallet {
 
 #[async_trait::async_trait(?Send)]
 impl BaseSignerWalletAdapter for UnsafeBurnerWallet {
+    fn wallet_signer(&self) -> Option<Box<dyn Signer>> {
+        let opt_kp = self.keypair.lock().ok().unwrap();
+        let kp = opt_kp.as_ref()?;
+
+        Some(Box::new(kp.insecure_clone()))
+    }
+
     async fn sign_transaction(
         &self,
         mut transaction: wallet_adapter_base::TransactionOrVersionedTransaction,

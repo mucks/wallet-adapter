@@ -522,12 +522,12 @@ impl BaseWalletAdapter for PhantomWalletAdapter {
             return Err(wallet_adapter_base::WalletError::WalletNotConnected);
         };
 
-        let send_options = options.clone().map(|o| o.send_options);
+        let send_options = options.as_ref().map(|o| o.send_options);
 
         match &mut transaction {
             TransactionOrVersionedTransaction::Transaction(ref mut tx) => {
                 *tx = self
-                    .prepare_transaction(tx.clone(), connection, send_options)
+                    .prepare_transaction(tx.clone(), connection, send_options.as_ref())
                     .await?;
 
                 if let Some(opt) = options {

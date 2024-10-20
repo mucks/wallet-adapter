@@ -4,7 +4,11 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{
-    commitment_config::CommitmentLevel, hash::Hash, pubkey::Pubkey, signature::Signature,
+    commitment_config::CommitmentLevel,
+    hash::Hash,
+    pubkey::Pubkey,
+    signature::{Keypair, Signature},
+    signer::Signer,
 };
 
 #[async_trait::async_trait(?Send)]
@@ -18,11 +22,11 @@ pub trait Connection {
     async fn send_raw_transaction(
         &self,
         raw_transaction: Vec<u8>,
-        options: Option<SendTransactionOptions>,
+        options: Option<&SendTransactionOptions>,
     ) -> Result<Signature>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SendOptions {
     /** disable transaction verification step */
@@ -35,32 +39,13 @@ pub struct SendOptions {
     pub min_context_slots: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SendTransactionOptions {
-    pub signers: Vec<Signer>,
+    #[serde(skip)]
+    pub signers: Vec<Box<dyn Signer>>,
     #[serde(flatten)]
     pub send_options: SendOptions,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Signer {}
-
-impl solana_sdk::signature::Signer for Signer {
-    fn try_pubkey(&self) -> std::result::Result<Pubkey, solana_sdk::signer::SignerError> {
-        todo!()
-    }
-
-    fn try_sign_message(
-        &self,
-        _message: &[u8],
-    ) -> std::result::Result<Signature, solana_sdk::signer::SignerError> {
-        todo!()
-    }
-
-    fn is_interactive(&self) -> bool {
-        todo!()
-    }
 }
 
 #[cfg(test)]

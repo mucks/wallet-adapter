@@ -1,6 +1,7 @@
 //! taken from https://github.com/anza-xyz/wallet-adapter/blob/master/packages/core/base/src/adapter.ts
 
 use anyhow::Result;
+use dyn_clone::DynClone;
 use solana_sdk::hash::Hash;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
@@ -77,7 +78,7 @@ pub enum WalletReadyState {
 }
 
 #[async_trait::async_trait(?Send)]
-pub trait BaseWalletAdapter {
+pub trait BaseWalletAdapter: DynClone {
     fn event_emitter(&self) -> WalletAdapterEventEmitter;
     fn name(&self) -> String;
     fn url(&self) -> String;
@@ -109,7 +110,7 @@ pub trait BaseWalletAdapter {
         &self,
         mut transaction: Transaction,
         connection: &dyn Connection,
-        options: Option<SendOptions>,
+        options: Option<&SendOptions>,
     ) -> crate::Result<Transaction> {
         let Some(public_key) = self.public_key() else {
             return Err(crate::WalletError::WalletNotConnected);
@@ -159,6 +160,8 @@ pub trait BaseWalletAdapter {
         Ok(())
     }
 }
+
+dyn_clone::clone_trait_object!(BaseWalletAdapter);
 
 #[cfg(test)]
 mod tests {

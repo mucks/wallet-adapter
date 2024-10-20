@@ -11,6 +11,7 @@ wallet-adapter-web3.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 bincode.workspace = true
+dyn-clone.workspace = true
 serde.workspace = true
 strum.workspace = true
 solana-sdk.workspace = true
