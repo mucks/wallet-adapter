@@ -1,14 +1,14 @@
 [package]
-name = "wallet-adapter-unsafe-burner"
+name = "wallet-adapter-connection-common"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 # workspace
-wallet-adapter-base.workspace = true
-wallet-adapter-connection-common.workspace = true
 wallet-adapter-types.workspace = true
+
 # crates.io
 anyhow.workspace = true
 async-trait.workspace = true
+serde = { workspace = true, features = ["derive"] }
 solana-sdk.workspace = true

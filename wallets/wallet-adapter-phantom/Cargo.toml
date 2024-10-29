@@ -6,18 +6,19 @@ edition.workspace = true
 [dependencies]
 # workspace
 wallet-adapter-base.workspace = true
-wallet-adapter-web3.workspace = true
+wallet-adapter-types.workspace = true
+wallet-adapter-connection-common.workspace = true
 
 # crates.io
 anyhow.workspace = true
 async-trait.workspace = true
 bincode.workspace = true
 js-sys.workspace = true
-log.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 serde-wasm-bindgen.workspace = true
 solana-sdk.workspace = true
+tracing.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true

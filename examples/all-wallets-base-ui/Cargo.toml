@@ -6,7 +6,9 @@ edition.workspace = true
 [dependencies]
 # workspace
 wallet-adapter-base.workspace = true
-wallet-adapter-web3.workspace = true
+wallet-adapter-types.workspace = true
+wallet-adapter-connection-common.workspace = true
+wallet-adapter-connection-wasm.workspace = true
 wallet-adapter-phantom.workspace = true
 wallet-adapter-unsafe-burner.workspace = true
 
@@ -15,7 +17,6 @@ anyhow = { version = "1", workspace = true }
 anchor-lang-idl = { workspace = true, features = ["convert"] }
 async-trait.workspace = true
 hex.workspace = true
-gloo-net = { workspace = true, features = ["http"] }
 solana-sdk.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
@@ -31,3 +32,4 @@ web-sys = { workspace = true, features = [
     "HtmlElement",
     "HtmlSelectElement",
 ] }
+tracing-wasm.workspace = true

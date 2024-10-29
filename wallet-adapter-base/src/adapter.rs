@@ -6,8 +6,8 @@ use solana_sdk::hash::Hash;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 use solana_sdk::transaction::Transaction;
-use wallet_adapter_web3::SendTransactionOptions;
-use wallet_adapter_web3::{Connection, SendOptions};
+use wallet_adapter_connection_common::Connection;
+use wallet_adapter_types::{SendOptions, SendTransactionOptions};
 
 use crate::transaction::{SupportedTransactionVersions, TransactionOrVersionedTransaction};
 use crate::WalletError;
@@ -129,6 +129,8 @@ pub trait BaseWalletAdapter: DynClone {
                 )
                 .await?;
             transaction.message.recent_blockhash = blockhash;
+
+            tracing::debug!("recent_blockhash: {}", blockhash);
         }
 
         Ok(transaction)

@@ -6,7 +6,8 @@ use wallet_adapter_base::{
     BaseMessageSignerWalletAdapter, BaseSignerWalletAdapter, BaseWalletAdapter, WalletAdapterEvent,
     WalletAdapterEventEmitter, WalletError, WalletReadyState,
 };
-use wallet_adapter_web3::{SendOptions, SendTransactionOptions};
+use wallet_adapter_connection_common::Connection;
+use wallet_adapter_types::SendTransactionOptions;
 
 #[derive(Debug, Clone)]
 pub struct UnsafeBurnerWallet {
@@ -93,8 +94,8 @@ impl BaseWalletAdapter for UnsafeBurnerWallet {
     async fn send_transaction(
         &self,
         transaction: wallet_adapter_base::TransactionOrVersionedTransaction,
-        connection: &dyn wallet_adapter_web3::Connection,
-        options: Option<wallet_adapter_web3::SendTransactionOptions>,
+        connection: &dyn Connection,
+        options: Option<SendTransactionOptions>,
     ) -> wallet_adapter_base::Result<solana_sdk::signature::Signature> {
         <Self as BaseSignerWalletAdapter>::send_transaction(&self, transaction, connection, options)
             .await

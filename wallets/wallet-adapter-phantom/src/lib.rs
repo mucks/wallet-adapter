@@ -7,6 +7,8 @@ use wallet_adapter_base::{
     BaseWalletAdapter, SupportedTransactionVersions, TransactionOrVersionedTransaction,
     WalletAdapterEvent, WalletAdapterEventEmitter, WalletError, WalletReadyState,
 };
+use wallet_adapter_connection_common::Connection;
+use wallet_adapter_types::SendTransactionOptions;
 use wallet_binding::solana;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
@@ -191,7 +193,7 @@ impl PhantomWallet {
             }
         })?;
 
-        log::debug!("{:?}", result);
+        tracing::debug!("{:?}", result);
 
         Ok(())
     }
@@ -513,8 +515,8 @@ impl BaseWalletAdapter for PhantomWalletAdapter {
     async fn send_transaction(
         &self,
         mut transaction: wallet_adapter_base::TransactionOrVersionedTransaction,
-        connection: &dyn wallet_adapter_web3::Connection,
-        options: Option<wallet_adapter_web3::SendTransactionOptions>,
+        connection: &dyn Connection,
+        options: Option<SendTransactionOptions>,
     ) -> wallet_adapter_base::Result<solana_sdk::signature::Signature> {
         let opt_wallet = { self.wallet.lock().unwrap().as_ref().cloned() };
 

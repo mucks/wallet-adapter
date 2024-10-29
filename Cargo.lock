@@ -36,16 +36,18 @@ dependencies = [
  "anchor-lang-idl",
  "anyhow",
  "async-trait",
- "gloo-net",
  "hex",
  "serde",
  "serde_json",
  "solana-sdk",
  "tokio",
+ "tracing-wasm",
  "wallet-adapter-base",
+ "wallet-adapter-connection-common",
+ "wallet-adapter-connection-wasm",
  "wallet-adapter-phantom",
+ "wallet-adapter-types",
  "wallet-adapter-unsafe-burner",
- "wallet-adapter-web3",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -1466,6 +1468,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sharded-slab"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1686,6 +1697,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "thread_local"
+version = "1.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b9ef9bad013ada3808854ceac7b46812a6465ba368859a37e2100283d2d719c"
+dependencies = [
+ "cfg-if",
+ "once_cell",
+]
+
+[[package]]
 name = "tinyvec"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1737,6 +1758,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing"
+version = "0.1.40"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3523ab5a71916ccf420eebdf5521fcef02141234bbc0b8a49f2fdc4544364ef"
+dependencies = [
+ "pin-project-lite",
+ "tracing-attributes",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.77",
+]
+
+[[package]]
+name = "tracing-core"
+version = "0.1.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.3.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
+dependencies = [
+ "sharded-slab",
+ "thread_local",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-wasm"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4575c663a174420fa2d78f4108ff68f65bf2fbb7dd89f33749b6e826b3626e07"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1782,7 +1856,39 @@ dependencies = [
  "solana-sdk",
  "strum",
  "tokio",
- "wallet-adapter-web3",
+ "tracing",
+ "wallet-adapter-connection-common",
+ "wallet-adapter-types",
+]
+
+[[package]]
+name = "wallet-adapter-connection-common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "serde",
+ "solana-sdk",
+ "wallet-adapter-types",
+]
+
+[[package]]
+name = "wallet-adapter-connection-reqwest"
+version = "0.1.0"
+
+[[package]]
+name = "wallet-adapter-connection-wasm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "gloo-net",
+ "serde_json",
+ "solana-sdk",
+ "tracing",
+ "wallet-adapter-connection-common",
+ "wallet-adapter-types",
 ]
 
 [[package]]
@@ -1793,14 +1899,15 @@ dependencies = [
  "async-trait",
  "bincode",
  "js-sys",
- "log",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
  "solana-sdk",
  "tokio",
+ "tracing",
  "wallet-adapter-base",
- "wallet-adapter-web3",
+ "wallet-adapter-connection-common",
+ "wallet-adapter-types",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -1811,6 +1918,14 @@ name = "wallet-adapter-solflare"
 version = "0.1.0"
 
 [[package]]
+name = "wallet-adapter-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "solana-sdk",
+]
+
+[[package]]
 name = "wallet-adapter-unsafe-burner"
 version = "0.1.0"
 dependencies = [
@@ -1818,21 +1933,8 @@ dependencies = [
  "async-trait",
  "solana-sdk",
  "wallet-adapter-base",
- "wallet-adapter-web3",
-]
-
-[[package]]
-name = "wallet-adapter-web3"
-version = "0.1.0"
-dependencies = [
- "anchor-lang-idl",
- "anyhow",
- "async-trait",
- "bincode",
- "hex",
- "serde",
- "serde_json",
- "solana-sdk",
+ "wallet-adapter-connection-common",
+ "wallet-adapter-types",
 ]
 
 [[package]]
