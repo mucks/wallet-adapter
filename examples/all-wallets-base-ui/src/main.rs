@@ -10,6 +10,7 @@ use wallet_adapter_base::{BaseWalletAdapter, TransactionOrVersionedTransaction};
 use wallet_adapter_connection_wasm::WasmConnection;
 use wallet_adapter_phantom::PhantomWalletAdapter;
 use wallet_adapter_unsafe_burner::UnsafeBurnerWallet;
+use wallet_adapter_unsafe_persistent::UnsafePersistentWallet;
 use wasm_bindgen::prelude::*;
 
 struct ButtonListeners {
@@ -283,8 +284,16 @@ pub fn main() {
     let phantom_wallet = PhantomWalletAdapter::new().unwrap();
     let unsafe_burner_wallet = UnsafeBurnerWallet::new();
 
-    let wallets: Vec<Box<dyn BaseWalletAdapter>> =
-        vec![Box::new(phantom_wallet), Box::new(unsafe_burner_wallet)];
+    let unsafe_persistent_wallet = UnsafePersistentWallet::new(
+        wallet_adapter_unsafe_persistent::wasm_storage::WasmStorage::local().unwrap(),
+    )
+    .unwrap();
+
+    let wallets: Vec<Box<dyn BaseWalletAdapter>> = vec![
+        Box::new(phantom_wallet),
+        Box::new(unsafe_burner_wallet),
+        Box::new(unsafe_persistent_wallet),
+    ];
 
     SELECT_LISTENER.with(|select_listener| {
         *select_listener.borrow_mut() = Some(register_wallet_select_button(wallets).unwrap());

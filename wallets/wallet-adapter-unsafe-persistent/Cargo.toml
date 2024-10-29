@@ -1,0 +1,21 @@
+[package]
+name = "wallet-adapter-unsafe-persistent"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# workspace
+wallet-adapter-base.workspace = true
+wallet-adapter-connection-common.workspace = true
+wallet-adapter-types.workspace = true
+
+# crates.io
+anyhow.workspace = true
+async-trait.workspace = true
+hex.workspace = true
+solana-sdk.workspace = true
+web-sys = { workspace = true, features = ["Storage"], optional = true }
+
+[features]
+file-system = []
+wasm = ["web-sys"]

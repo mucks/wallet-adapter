@@ -11,6 +11,7 @@ wallet-adapter-connection-common.workspace = true
 wallet-adapter-connection-wasm.workspace = true
 wallet-adapter-phantom.workspace = true
 wallet-adapter-unsafe-burner.workspace = true
+wallet-adapter-unsafe-persistent = { workspace = true, features = ["wasm"] }
 
 # crates.io
 anyhow = { version = "1", workspace = true }

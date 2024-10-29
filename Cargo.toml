@@ -2,10 +2,11 @@
 resolver = "2"
 members = [
     "examples/all-wallets-base-ui",
+    "examples/all-wallets-bevy",
     "wallet-adapter-base",
-    "wallet-adapter-connections/wallet-adapter-connection-common",
-    "wallet-adapter-connections/wallet-adapter-connection-reqwest",
-    "wallet-adapter-connections/wallet-adapter-connection-wasm",
+    "wallet-adapter-connection/wallet-adapter-connection-common",
+    "wallet-adapter-connection/wallet-adapter-connection-reqwest",
+    "wallet-adapter-connection/wallet-adapter-connection-wasm",
     "wallet-adapter-types",
     "wallets/wallet-adapter-*",
 ]
@@ -19,19 +20,20 @@ edition = "2021"
 # workspace
 wallet-adapter-base = { path = "./wallet-adapter-base" }
 wallet-adapter-types = { path = "./wallet-adapter-types" }
-wallet-adapter-connection-common = { path = "./wallet-adapter-connections/wallet-adapter-connection-common" }
-wallet-adapter-connection-wasm = { path = "./wallet-adapter-connections/wallet-adapter-connection-wasm" }
+wallet-adapter-connection-common = { path = "./wallet-adapter-connection/wallet-adapter-connection-common" }
+wallet-adapter-connection-wasm = { path = "./wallet-adapter-connection/wallet-adapter-connection-wasm" }
 
 ## wallets
 wallet-adapter-phantom = { path = "./wallets/wallet-adapter-phantom" }
 wallet-adapter-unsafe-burner = { path = "./wallets/wallet-adapter-unsafe-burner" }
-wallet-adapter-utils-wasm.workspace = true
+wallet-adapter-unsafe-persistent = { path = "./wallets/wallet-adapter-unsafe-persistent" }
 
 # crates.io
 anyhow = "1"
 anchor-lang-idl = "0.1.1"
 async-trait = "0.1"
 base64 = "0.22"
+bevy = "0.14"
 bincode = "1.3.3"
 dyn-clone = "1"
 gloo-net = "0.6"

@@ -1,0 +1,9 @@
+[package]
+name = "all-wallets-bevy"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# crates.io
+anyhow.workspace = true
+bevy = { workspace = true, features = ["dynamic_linking"] }
