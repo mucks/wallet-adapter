@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use bevy::prelude::*;
 use std::sync::{Arc, OnceLock, RwLock, RwLockWriteGuard};
+use wallet_adapter_base::{BaseWalletAdapter, WalletAdapterEvent};
+use wallet_adapter_unsafe_burner::UnsafeBurnerWallet;
 
 fn main() {
     App::new()
@@ -13,8 +15,13 @@ pub struct WalletAdapterBevyPlugin;
 
 impl Plugin for WalletAdapterBevyPlugin {
     fn build(&self, app: &mut App) {
+        let burner_wallet = UnsafeBurnerWallet::new();
+
         app.add_event::<WalletEvent>();
-        app.insert_resource(Wallet { info: None });
+        app.insert_resource(Wallet {
+            active_wallet: Box::new(burner_wallet.clone()),
+            wallets: vec![Box::new(burner_wallet)],
+        });
         app.add_systems(Startup, setup_wallet_menu);
         app.add_systems(
             Update,
@@ -22,10 +29,16 @@ impl Plugin for WalletAdapterBevyPlugin {
                 wallet_menu_interaction_system,
                 wallet_event_system,
                 wallet_menu_system,
-                async_wallet_event_system,
+                on_wallet_event_system,
             ),
         );
     }
+}
+
+#[derive(Resource)]
+pub struct Wallet {
+    pub active_wallet: Box<dyn BaseWalletAdapter + Sync + Send>,
+    pub wallets: Vec<Box<dyn BaseWalletAdapter + Sync + Send>>,
 }
 
 static ASYNC_WALLET_EVENT_QUEUE: OnceLock<Arc<RwLock<Vec<AsyncWalletEvent>>>> = OnceLock::new();
@@ -59,11 +72,6 @@ impl AsyncWalletEventQueue {
     }
 }
 
-#[derive(Debug, Resource)]
-pub struct Wallet {
-    pub info: Option<WalletInfo>,
-}
-
 #[derive(Debug)]
 pub struct WalletInfo {
     pub amount: u32,
@@ -74,7 +82,7 @@ pub struct WalletInfo {
 pub enum WalletEvent {
     ConnectBtnClick,
     DisconnectBtnClick,
-    Connected,
+    Connected(String),
     Disconnected,
 }
 
@@ -95,23 +103,6 @@ const NORMAL_BUTTON: Color = Color::linear_rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::linear_rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::linear_rgb(0.35, 0.75, 0.35);
 
-fn async_wallet_event_system(mut ev_writer: EventWriter<WalletEvent>, mut wallet: ResMut<Wallet>) {
-    if let Ok(Some(event)) = AsyncWalletEventQueue::pop() {
-        match event {
-            AsyncWalletEvent::ConnectionCompleted(result) => match result {
-                Ok(address) => {
-                    debug!("WalletEvent::ConnectionCompleted: {:?}", address);
-                    wallet.info = Some(WalletInfo { amount: 0, address });
-                    ev_writer.send(WalletEvent::Connected);
-                }
-                Err(err) => {
-                    debug!("WalletEvent::ConnectionCompleted: {:?}", err);
-                }
-            },
-        }
-    }
-}
-
 fn wallet_menu_system(
     mut ev_reader: EventReader<WalletEvent>,
     mut wallet_menu_query: Query<&mut Text, (With<WalletMenu>, Without<ConnectDisconnectBtnText>)>,
@@ -124,17 +115,15 @@ fn wallet_menu_system(
 ) {
     for event in ev_reader.read() {
         match event {
-            WalletEvent::Connected => {
+            WalletEvent::Connected(addr) => {
                 debug!("WalletEvent::Connected");
-                if let Some(info) = &wallet.info {
-                    wallet_menu_query.single_mut().sections[0].value = info.address.clone();
-                }
+                wallet_menu_query.single_mut().sections[0].value = addr.clone();
                 toggle_connect_btn_text.single_mut().sections[0].value = "Disconnect".to_string();
                 *toggle_connect_btn.single_mut() = WalletButtonType::Disconnect;
             }
             WalletEvent::DisconnectBtnClick => {
                 debug!("WalletEvent::DisconnectBtnClick");
-                wallet.info = None;
+                // wallet.info = None;
                 wallet_menu_query.single_mut().sections[0].value = String::new();
                 toggle_connect_btn_text.single_mut().sections[0].value = "Connect".to_string();
                 *toggle_connect_btn.single_mut() = WalletButtonType::Connect;
@@ -144,14 +133,36 @@ fn wallet_menu_system(
     }
 }
 
+fn on_wallet_event_system(mut ev_writer: EventWriter<WalletEvent>, wallet: Res<Wallet>) {
+    let active_wallet = wallet.active_wallet.clone();
+
+    if let Some(ev) = active_wallet.event_emitter().try_recv() {
+        info!("on_wallet_event_system: {:?}", ev);
+
+        match ev {
+            WalletAdapterEvent::Connect(addr) => {
+                ev_writer.send(WalletEvent::Connected(addr.to_string()));
+            }
+            _ => {}
+        }
+    }
+}
+
 fn wallet_event_system(
     mut _commands: Commands,
     mut ev_reader: EventReader<WalletEvent>,
-    mut _wallet: ResMut<Wallet>,
+    wallet: Res<Wallet>,
 ) {
     for event in ev_reader.read() {
         if let WalletEvent::ConnectBtnClick = event {
             debug!("WalletEvent::ConnectBtnClick");
+
+            let mut active_wallet = wallet.active_wallet.clone();
+
+            let other_task = async move {
+                active_wallet.connect().await.unwrap();
+            };
+            futures::executor::block_on(other_task);
         }
     }
 }

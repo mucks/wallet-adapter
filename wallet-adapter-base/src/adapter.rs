@@ -45,6 +45,10 @@ impl WalletAdapterEventEmitter {
     pub async fn recv(&self) -> Option<WalletAdapterEvent> {
         self.rx.lock().await.recv().await
     }
+
+    pub fn try_recv(&self) -> Option<WalletAdapterEvent> {
+        self.rx.try_lock().ok()?.try_recv().ok()
+    }
 }
 
 /**
