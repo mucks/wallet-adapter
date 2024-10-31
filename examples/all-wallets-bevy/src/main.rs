@@ -1,6 +1,5 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use bevy::prelude::*;
-use std::sync::{Arc, OnceLock, RwLock, RwLockWriteGuard};
 use wallet_adapter_base::{BaseWalletAdapter, WalletAdapterEvent};
 use wallet_adapter_unsafe_burner::UnsafeBurnerWallet;
 
@@ -18,6 +17,8 @@ impl Plugin for WalletAdapterBevyPlugin {
         let burner_wallet = UnsafeBurnerWallet::new();
 
         app.add_event::<WalletEvent>();
+        app.add_event::<WalletUiEvent>();
+
         app.insert_resource(Wallet {
             active_wallet: Box::new(burner_wallet.clone()),
             wallets: vec![Box::new(burner_wallet)],
@@ -41,49 +42,16 @@ pub struct Wallet {
     pub wallets: Vec<Box<dyn BaseWalletAdapter + Sync + Send>>,
 }
 
-static ASYNC_WALLET_EVENT_QUEUE: OnceLock<Arc<RwLock<Vec<AsyncWalletEvent>>>> = OnceLock::new();
-
-// This is a workaround to catch the async wallet event in the main thread
-struct AsyncWalletEventQueue;
-
-impl AsyncWalletEventQueue {
-    fn get_rw_lock() -> Result<RwLockWriteGuard<'static, Vec<AsyncWalletEvent>>> {
-        ASYNC_WALLET_EVENT_QUEUE
-            .get_or_init(|| Arc::new(RwLock::new(vec![])))
-            .write()
-            .map_err(|err| anyhow!("{:?}", err))
-    }
-
-    fn push(event: AsyncWalletEvent) -> Result<()> {
-        let mut wallet_event_queue = Self::get_rw_lock()?;
-        wallet_event_queue.push(event);
-        Ok(())
-    }
-
-    fn pop() -> Result<Option<AsyncWalletEvent>> {
-        let mut wallet_event_queue = Self::get_rw_lock()?;
-        Ok(wallet_event_queue.pop())
-    }
-
-    fn _clear() -> Result<()> {
-        let mut wallet_event_queue = Self::get_rw_lock()?;
-        wallet_event_queue.clear();
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct WalletInfo {
-    pub amount: u32,
-    pub address: String,
+#[derive(Debug, Event)]
+pub enum WalletEvent {
+    Connected(String),
+    Disconnected,
 }
 
 #[derive(Debug, Event)]
-pub enum WalletEvent {
+pub enum WalletUiEvent {
     ConnectBtnClick,
     DisconnectBtnClick,
-    Connected(String),
-    Disconnected,
 }
 
 pub enum AsyncWalletEvent {
@@ -106,7 +74,6 @@ const PRESSED_BUTTON: Color = Color::linear_rgb(0.35, 0.75, 0.35);
 fn wallet_menu_system(
     mut ev_reader: EventReader<WalletEvent>,
     mut wallet_menu_query: Query<&mut Text, (With<WalletMenu>, Without<ConnectDisconnectBtnText>)>,
-    mut wallet: ResMut<Wallet>,
     mut toggle_connect_btn: Query<&mut WalletButtonType, With<WalletButtonType>>,
     mut toggle_connect_btn_text: Query<
         &mut Text,
@@ -117,18 +84,17 @@ fn wallet_menu_system(
         match event {
             WalletEvent::Connected(addr) => {
                 debug!("WalletEvent::Connected");
-                wallet_menu_query.single_mut().sections[0].value = addr.clone();
+                let addr_short = format!("{}..{}", &addr[0..4], &addr[addr.len() - 4..]);
+                wallet_menu_query.single_mut().sections[0].value = addr_short.clone();
                 toggle_connect_btn_text.single_mut().sections[0].value = "Disconnect".to_string();
                 *toggle_connect_btn.single_mut() = WalletButtonType::Disconnect;
             }
-            WalletEvent::DisconnectBtnClick => {
-                debug!("WalletEvent::DisconnectBtnClick");
-                // wallet.info = None;
+            WalletEvent::Disconnected => {
+                debug!("WalletEvent::Disconnect");
                 wallet_menu_query.single_mut().sections[0].value = String::new();
                 toggle_connect_btn_text.single_mut().sections[0].value = "Connect".to_string();
                 *toggle_connect_btn.single_mut() = WalletButtonType::Connect;
             }
-            _ => {}
         }
     }
 }
@@ -143,6 +109,9 @@ fn on_wallet_event_system(mut ev_writer: EventWriter<WalletEvent>, wallet: Res<W
             WalletAdapterEvent::Connect(addr) => {
                 ev_writer.send(WalletEvent::Connected(addr.to_string()));
             }
+            WalletAdapterEvent::Disconnect => {
+                ev_writer.send(WalletEvent::Disconnected);
+            }
             _ => {}
         }
     }
@@ -150,19 +119,31 @@ fn on_wallet_event_system(mut ev_writer: EventWriter<WalletEvent>, wallet: Res<W
 
 fn wallet_event_system(
     mut _commands: Commands,
-    mut ev_reader: EventReader<WalletEvent>,
+    mut ev_reader: EventReader<WalletUiEvent>,
     wallet: Res<Wallet>,
 ) {
     for event in ev_reader.read() {
-        if let WalletEvent::ConnectBtnClick = event {
-            debug!("WalletEvent::ConnectBtnClick");
+        match event {
+            WalletUiEvent::ConnectBtnClick => {
+                debug!("WalletEvent::ConnectBtnClick");
 
-            let mut active_wallet = wallet.active_wallet.clone();
+                let mut active_wallet = wallet.active_wallet.clone();
 
-            let other_task = async move {
-                active_wallet.connect().await.unwrap();
-            };
-            futures::executor::block_on(other_task);
+                let other_task = async move {
+                    active_wallet.connect().await.unwrap();
+                };
+                futures::executor::block_on(other_task);
+            }
+            WalletUiEvent::DisconnectBtnClick => {
+                debug!("WalletEvent::DisconnectBtnClick");
+
+                let active_wallet = wallet.active_wallet.clone();
+
+                let other_task = async move {
+                    active_wallet.disconnect().await.unwrap();
+                };
+                futures::executor::block_on(other_task);
+            }
         }
     }
 }
@@ -178,7 +159,7 @@ pub fn wallet_menu_interaction_system(
         ),
         (Changed<Interaction>, With<WalletButtonType>),
     >,
-    mut ev_writer: EventWriter<WalletEvent>,
+    mut ev_writer: EventWriter<WalletUiEvent>,
 ) {
     for (interaction, mut color, mut border_color, button_type) in &mut interaction_query {
         // styling
@@ -202,11 +183,11 @@ pub fn wallet_menu_interaction_system(
             Interaction::Pressed => match button_type {
                 WalletButtonType::Connect => {
                     println!("Connect button clicked");
-                    ev_writer.send(WalletEvent::ConnectBtnClick);
+                    ev_writer.send(WalletUiEvent::ConnectBtnClick);
                 }
                 WalletButtonType::Disconnect => {
                     println!("Disconnect button clicked");
-                    ev_writer.send(WalletEvent::DisconnectBtnClick);
+                    ev_writer.send(WalletUiEvent::DisconnectBtnClick);
                 }
             },
             Interaction::Hovered => {
@@ -231,31 +212,20 @@ pub fn setup_wallet_menu(mut commands: Commands) {
             style: Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(20.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
+                align_items: AlignItems::End,
+                justify_content: JustifyContent::Start,
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
             ..default()
         })
         .with_children(|parent| {
-            // spawn text view for wallet
-            parent
-                .spawn(TextBundle::from_section(
-                    "",
-                    TextStyle {
-                        font_size: 40.0,
-                        color: Color::linear_rgb(0.9, 0.9, 0.9),
-                        ..Default::default()
-                    },
-                ))
-                .insert(WalletMenu);
-
             // spawn connect button
             parent
                 .spawn(ButtonBundle {
                     style: Style {
-                        width: Val::Px(150.0),
-                        height: Val::Px(65.0),
+                        width: Val::Px(200.0),
+                        height: Val::Px(50.0),
                         border: UiRect::all(Val::Px(5.0)),
                         // horizontally center child text
                         justify_content: JustifyContent::Center,
@@ -270,9 +240,9 @@ pub fn setup_wallet_menu(mut commands: Commands) {
                 .with_children(|parent| {
                     parent
                         .spawn(TextBundle::from_section(
-                            "Connect",
+                            "Connect Wallet",
                             TextStyle {
-                                font_size: 40.0,
+                                font_size: 25.0,
                                 color: Color::linear_rgb(0.9, 0.9, 0.9),
                                 ..Default::default()
                             },
@@ -280,6 +250,38 @@ pub fn setup_wallet_menu(mut commands: Commands) {
                         .insert(ConnectDisconnectBtnText);
                 })
                 .insert(WalletButtonType::Connect);
+            // spawn text view for wallet
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Px(200.0),
+                        height: Val::Px(50.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        margin: UiRect {
+                            top: Val::Px(10.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    border_color: BorderColor(Color::BLACK),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn(TextBundle::from_section(
+                            "",
+                            TextStyle {
+                                font_size: 30.0,
+                                color: Color::linear_rgb(0.9, 0.9, 0.9),
+                                ..Default::default()
+                            },
+                        ))
+                        .insert(WalletMenu);
+                });
         });
 
     // setup address display
