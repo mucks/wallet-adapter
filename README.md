@@ -6,10 +6,11 @@ Modular Rust wallet adapter and components for Rust applications.
 
 ### ui
 - [x] simple base ui for testing
+- [x] bevy
 - [ ] leptos ui
-- [ ] bevy
 
 ### wallets
 - [x] support phantom wallet
-- [ ] burner wallet
-- [ ] support solflare wallet 
+- [x] burner wallet
+- [x] support solflare wallet 
+- [ ] support backpack wallet

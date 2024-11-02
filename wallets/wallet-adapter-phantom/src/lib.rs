@@ -70,9 +70,6 @@ mod wallet_binding {
         #[wasm_bindgen(method, getter, js_name = publicKey)]
         pub fn public_key(this: &Solana) -> Pubkey;
 
-        #[wasm_bindgen(method, getter, js_name = isPhantom)]
-        pub fn is_phantom(this: &Solana) -> bool;
-
         #[wasm_bindgen(method, getter, js_name = isConnected)]
         pub fn is_connected(this: &Solana) -> bool;
 
@@ -134,12 +131,20 @@ impl From<anyhow::Error> for PhantomConnectError {
     }
 }
 
+// TODO: move this to a wasm shared crate
+fn reflect_get(target: &JsValue, key: &JsValue) -> Result<JsValue> {
+    let result = js_sys::Reflect::get(target, key).map_err(|e| anyhow!("{:?}", e))?;
+    Ok(result)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PhantomWallet;
 
 impl PhantomWallet {
-    pub fn is_phantom(&self) -> Result<bool> {
-        Ok(solana().is_phantom())
+    pub fn is_phantom() -> Result<bool> {
+        reflect_get(&solana(), &JsValue::from_str("isPhantom"))?
+            .as_bool()
+            .context("isConnected is not a bool")
     }
 
     pub fn is_connected(&self) -> Result<bool> {
@@ -286,7 +291,7 @@ impl PhantomWalletAdapter {
                 // TODO: make this waiting loop a shared logic
                 wasm_bindgen_futures::spawn_local(async move {
                     for _i in 0..60 {
-                        if solana().is_phantom() {
+                        if PhantomWallet::is_phantom().ok() == Some(true) {
                             self_clone.set_ready_state(WalletReadyState::Installed);
                             self_clone
                                 .event_emitter

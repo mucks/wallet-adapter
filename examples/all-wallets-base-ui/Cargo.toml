@@ -9,8 +9,9 @@ wallet-adapter-base.workspace = true
 wallet-adapter-common.workspace = true
 wallet-adapter-wasm.workspace = true
 wallet-adapter-phantom.workspace = true
+wallet-adapter-solflare.workspace = true
 wallet-adapter-unsafe-burner.workspace = true
-wallet-adapter-unsafe-persistent = { workspace = true, features = ["wasm"] }
+wallet-adapter-unsafe-persistent.workspace = true
 
 # crates.io
 anyhow.workspace = true

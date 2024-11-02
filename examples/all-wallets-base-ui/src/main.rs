@@ -8,6 +8,7 @@ use solana_sdk::transaction::Transaction;
 use tokio::sync::RwLock;
 use wallet_adapter_base::{BaseWalletAdapter, TransactionOrVersionedTransaction};
 use wallet_adapter_phantom::PhantomWalletAdapter;
+use wallet_adapter_solflare::SolflareWalletAdapter;
 use wallet_adapter_unsafe_burner::UnsafeBurnerWallet;
 use wallet_adapter_unsafe_persistent::UnsafePersistentWallet;
 use wallet_adapter_wasm::connection::WasmConnection;
@@ -288,8 +289,11 @@ pub fn main() {
     let unsafe_persistent_wallet =
         UnsafePersistentWallet::new(WasmStorage::local().unwrap()).unwrap();
 
+    let solflare = SolflareWalletAdapter::new().unwrap();
+
     let wallets: Vec<Box<dyn BaseWalletAdapter>> = vec![
         Box::new(phantom_wallet),
+        Box::new(solflare),
         Box::new(unsafe_burner_wallet),
         Box::new(unsafe_persistent_wallet),
     ];

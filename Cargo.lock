@@ -127,6 +127,7 @@ dependencies = [
  "wallet-adapter-base",
  "wallet-adapter-common",
  "wallet-adapter-phantom",
+ "wallet-adapter-solflare",
  "wallet-adapter-unsafe-burner",
  "wallet-adapter-unsafe-persistent",
  "wallet-adapter-wasm",
@@ -5571,6 +5572,23 @@ dependencies = [
 [[package]]
 name = "wallet-adapter-solflare"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "solana-sdk",
+ "tokio",
+ "tracing",
+ "wallet-adapter-base",
+ "wallet-adapter-common",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
 
 [[package]]
 name = "wallet-adapter-unsafe-burner"
