@@ -1,0 +1,18 @@
+[package]
+name = "wallet-adapter-bevy"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# workspace
+wallet-adapter-base.workspace = true
+wallet-adapter-unsafe-burner.workspace = true
+
+# crates.io
+anyhow.workspace = true
+bevy.workspace = true
+futures.workspace = true
+
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+arboard.workspace = true

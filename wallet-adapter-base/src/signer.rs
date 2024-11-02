@@ -1,6 +1,5 @@
 use solana_sdk::{signature::Signature, signer::Signer};
-use wallet_adapter_connection_common::Connection;
-use wallet_adapter_types::SendTransactionOptions;
+use wallet_adapter_common::{connection::Connection, types::SendTransactionOptions};
 
 use crate::{adapter::BaseWalletAdapter, transaction::TransactionOrVersionedTransaction};
 use anyhow::anyhow;

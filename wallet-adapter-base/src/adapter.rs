@@ -6,8 +6,8 @@ use solana_sdk::hash::Hash;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 use solana_sdk::transaction::Transaction;
-use wallet_adapter_connection_common::Connection;
-use wallet_adapter_types::{SendOptions, SendTransactionOptions};
+use wallet_adapter_common::connection::Connection;
+use wallet_adapter_common::types::{SendOptions, SendTransactionOptions};
 
 use crate::transaction::{SupportedTransactionVersions, TransactionOrVersionedTransaction};
 use crate::WalletError;

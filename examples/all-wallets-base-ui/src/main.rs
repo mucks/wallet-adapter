@@ -7,10 +7,11 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
 use tokio::sync::RwLock;
 use wallet_adapter_base::{BaseWalletAdapter, TransactionOrVersionedTransaction};
-use wallet_adapter_connection_wasm::WasmConnection;
 use wallet_adapter_phantom::PhantomWalletAdapter;
 use wallet_adapter_unsafe_burner::UnsafeBurnerWallet;
 use wallet_adapter_unsafe_persistent::UnsafePersistentWallet;
+use wallet_adapter_wasm::connection::WasmConnection;
+use wallet_adapter_wasm::storage::WasmStorage;
 use wasm_bindgen::prelude::*;
 
 struct ButtonListeners {
@@ -284,10 +285,8 @@ pub fn main() {
     let phantom_wallet = PhantomWalletAdapter::new().unwrap();
     let unsafe_burner_wallet = UnsafeBurnerWallet::new();
 
-    let unsafe_persistent_wallet = UnsafePersistentWallet::new(
-        wallet_adapter_unsafe_persistent::wasm_storage::WasmStorage::local().unwrap(),
-    )
-    .unwrap();
+    let unsafe_persistent_wallet =
+        UnsafePersistentWallet::new(WasmStorage::local().unwrap()).unwrap();
 
     let wallets: Vec<Box<dyn BaseWalletAdapter>> = vec![
         Box::new(phantom_wallet),

@@ -1,19 +1,18 @@
 [package]
-name = "wallet-adapter-base"
+name = "wallet-adapter-x86"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 # workspace
 wallet-adapter-common.workspace = true
-
 # crates.io
 anyhow.workspace = true
 async-trait.workspace = true
-bincode.workspace = true
-dyn-clone.workspace = true
-serde.workspace = true
-strum.workspace = true
+base64.workspace = true
+hex.workspace = true
+platform-dirs.workspace = true
+reqwest = { workspace = true, features = ["json"] }
 solana-sdk.workspace = true
+serde_json.workspace = true
 tracing.workspace = true
-tokio = { workspace = true, features = ["sync"] }

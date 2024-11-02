@@ -5,14 +5,10 @@ edition.workspace = true
 
 [dependencies]
 # workspace
-wallet-adapter-base.workspace = true
+wallet-adapter-bevy.workspace = true
 wallet-adapter-unsafe-burner.workspace = true
+wallet-adapter-unsafe-persistent.workspace = true
+wallet-adapter-x86.workspace = true
 
 # crates.io
-anyhow.workspace = true
 bevy = { workspace = true, features = ["dynamic_linking", "wayland"] }
-futures.workspace = true
-
-
-[target.'cfg(target_arch = "x86_64")'.dependencies]
-arboard.workspace = true

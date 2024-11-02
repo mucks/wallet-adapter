@@ -2,12 +2,11 @@ use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
 use base64::prelude::*;
-use gloo_net::http::Request;
 use serde_json::json;
 use solana_sdk::hash::Hash;
 use solana_sdk::{commitment_config::CommitmentLevel, signature::Signature};
-use wallet_adapter_connection_common::{Connection, GetLatestBlockhash, RpcRequest, RpcResponse};
-use wallet_adapter_types::SendTransactionOptions;
+use wallet_adapter_common::connection::{Connection, GetLatestBlockhash, RpcRequest, RpcResponse};
+use wallet_adapter_common::types::SendTransactionOptions;
 
 pub struct WasmConnection {
     url: String,
@@ -47,9 +46,12 @@ impl Connection for WasmConnection {
             json!([{"commitment": commitment.unwrap_or(CommitmentLevel::Finalized)}]),
         );
 
-        let resp: RpcResponse<GetLatestBlockhash, serde_json::Value> = Request::post(self.url())
+        let client = reqwest::Client::new();
+
+        let resp: RpcResponse<GetLatestBlockhash, serde_json::Value> = client
+            .post(self.url())
+            .json(&req)
             .header("Content-Type", "application/json")
-            .json(&req)?
             .send()
             .await?
             .json()
@@ -88,9 +90,12 @@ impl Connection for WasmConnection {
 
         let req = RpcRequest::new("sendTransaction", json!([tx_base64, req_options]));
 
-        let resp: RpcResponse<String, serde_json::Value> = Request::post(self.url())
+        let client = reqwest::Client::new();
+
+        let resp: RpcResponse<String, serde_json::Value> = client
+            .post(self.url())
+            .json(&req)
             .header("Content-Type", "application/json")
-            .json(&req)?
             .send()
             .await?
             .json()

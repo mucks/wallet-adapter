@@ -1,18 +1,18 @@
 [package]
-name = "wallet-adapter-connection-wasm"
+name = "wallet-adapter-wasm"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 # workspace
-wallet-adapter-types.workspace = true
-wallet-adapter-connection-common.workspace = true
-
+wallet-adapter-common.workspace = true
 # crates.io
 anyhow.workspace = true
 async-trait.workspace = true
 base64.workspace = true
 gloo-net = { workspace = true, features = ["http"] }
+hex.workspace = true
 solana-sdk.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
+web-sys = { workspace = true, features = ["Window", "Location", "console"] }

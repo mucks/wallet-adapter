@@ -4,10 +4,10 @@ members = [
     "examples/all-wallets-base-ui",
     "examples/all-wallets-bevy",
     "wallet-adapter-base",
-    "wallet-adapter-connection/wallet-adapter-connection-common",
-    "wallet-adapter-connection/wallet-adapter-connection-reqwest",
-    "wallet-adapter-connection/wallet-adapter-connection-wasm",
-    "wallet-adapter-types",
+    "wallet-adapter-bevy",
+    "wallet-adapter-common",
+    "wallet-adapter-wasm",
+    "wallet-adapter-x86",
     "wallets/wallet-adapter-*",
 ]
 
@@ -19,9 +19,10 @@ edition = "2021"
 [workspace.dependencies]
 # workspace
 wallet-adapter-base = { path = "./wallet-adapter-base" }
-wallet-adapter-types = { path = "./wallet-adapter-types" }
-wallet-adapter-connection-common = { path = "./wallet-adapter-connection/wallet-adapter-connection-common" }
-wallet-adapter-connection-wasm = { path = "./wallet-adapter-connection/wallet-adapter-connection-wasm" }
+wallet-adapter-bevy = { path = "./wallet-adapter-bevy" }
+wallet-adapter-common = { path = "./wallet-adapter-common" }
+wallet-adapter-wasm = { path = "./wallet-adapter-wasm" }
+wallet-adapter-x86 = { path = "./wallet-adapter-x86" }
 
 ## wallets
 wallet-adapter-phantom = { path = "./wallets/wallet-adapter-phantom" }
@@ -41,6 +42,8 @@ futures = "0.3"
 gloo-net = "0.6"
 hex = "0.4"
 js-sys = "0.3.65"
+platform-dirs = "0.3.0"
+reqwest = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde-wasm-bindgen = "0.6"

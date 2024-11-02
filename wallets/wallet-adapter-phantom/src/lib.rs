@@ -7,8 +7,8 @@ use wallet_adapter_base::{
     BaseWalletAdapter, SupportedTransactionVersions, TransactionOrVersionedTransaction,
     WalletAdapterEvent, WalletAdapterEventEmitter, WalletError, WalletReadyState,
 };
-use wallet_adapter_connection_common::Connection;
-use wallet_adapter_types::SendTransactionOptions;
+use wallet_adapter_common::connection::Connection;
+use wallet_adapter_common::types::SendTransactionOptions;
 use wallet_binding::solana;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};

@@ -1,7 +1,8 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{commitment_config::CommitmentLevel, hash::Hash, signature::Signature};
-use wallet_adapter_types::SendTransactionOptions;
+
+use crate::types::SendTransactionOptions;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

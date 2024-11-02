@@ -7,63 +7,9 @@ use wallet_adapter_base::{
     BaseMessageSignerWalletAdapter, BaseSignerWalletAdapter, BaseWalletAdapter, WalletAdapterEvent,
     WalletAdapterEventEmitter, WalletError, WalletReadyState,
 };
-use wallet_adapter_connection_common::Connection;
-use wallet_adapter_types::SendTransactionOptions;
-
-#[cfg(feature = "wasm")]
-pub mod wasm_storage {
-    use anyhow::{anyhow, Context, Result};
-    use solana_sdk::signature::Keypair;
-    use web_sys::Storage;
-
-    use crate::KeypairStorage;
-
-    #[derive(Debug)]
-    pub struct WasmStorage {
-        storage: Storage,
-    }
-
-    impl WasmStorage {
-        pub fn local() -> Result<Self> {
-            Ok(Self {
-                storage: web_sys::window()
-                    .context("window not available")?
-                    .local_storage()
-                    .map_err(|err| anyhow!("local storage not available: {err:?}"))?
-                    .context("local storage not available")?,
-            })
-        }
-    }
-
-    impl KeypairStorage for WasmStorage {
-        fn get_keypair(&self) -> Result<Option<Keypair>> {
-            let item = self
-                .storage
-                .get_item("keypair")
-                .map_err(|err| anyhow!("{err:?}"))?;
-            match item {
-                Some(item) => Ok(Some(Keypair::from_bytes(&hex::decode(item)?)?)),
-                None => Ok(None),
-            }
-        }
-
-        fn set_keypair(&self, keypair: Keypair) -> Result<()> {
-            self.storage
-                .set_item("keypair", &hex::encode(keypair.to_bytes()))
-                .map_err(|err| anyhow!("{err:?}"))?;
-
-            Ok(())
-        }
-    }
-}
-
-#[cfg(feature = "file-system")]
-mod desktop_storage {}
-
-pub trait KeypairStorage: std::fmt::Debug {
-    fn get_keypair(&self) -> Result<Option<Keypair>>;
-    fn set_keypair(&self, keypair: Keypair) -> Result<()>;
-}
+use wallet_adapter_common::connection::Connection;
+use wallet_adapter_common::storage::KeypairStorage;
+use wallet_adapter_common::types::SendTransactionOptions;
 
 #[derive(Debug, Clone)]
 pub struct UnsafePersistentWallet {

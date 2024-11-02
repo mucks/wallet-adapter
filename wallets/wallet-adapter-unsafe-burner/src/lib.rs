@@ -6,8 +6,7 @@ use wallet_adapter_base::{
     BaseMessageSignerWalletAdapter, BaseSignerWalletAdapter, BaseWalletAdapter, WalletAdapterEvent,
     WalletAdapterEventEmitter, WalletError, WalletReadyState,
 };
-use wallet_adapter_connection_common::Connection;
-use wallet_adapter_types::SendTransactionOptions;
+use wallet_adapter_common::{connection::Connection, types::SendTransactionOptions};
 
 #[derive(Debug, Clone)]
 pub struct UnsafeBurnerWallet {
