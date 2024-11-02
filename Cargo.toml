@@ -30,6 +30,7 @@ wallet-adapter-unsafe-persistent = { path = "./wallets/wallet-adapter-unsafe-per
 
 # crates.io
 anyhow = "1"
+arboard = "3.4"
 anchor-lang-idl = "0.1.1"
 async-trait = "0.1"
 base64 = "0.22"

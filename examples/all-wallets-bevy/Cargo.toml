@@ -10,5 +10,9 @@ wallet-adapter-unsafe-burner.workspace = true
 
 # crates.io
 anyhow.workspace = true
-bevy = { workspace = true, features = ["dynamic_linking"] }
+bevy = { workspace = true, features = ["dynamic_linking", "wayland"] }
 futures.workspace = true
+
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+arboard.workspace = true

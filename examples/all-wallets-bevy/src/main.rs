@@ -31,6 +31,8 @@ impl Plugin for WalletAdapterBevyPlugin {
                 wallet_event_system,
                 wallet_menu_system,
                 on_wallet_event_system,
+                button_styling_system,
+                on_address_clicked_system,
             ),
         );
     }
@@ -148,6 +150,60 @@ fn wallet_event_system(
     }
 }
 
+#[derive(Debug, Component)]
+pub struct CopyAddress;
+
+pub fn on_address_clicked_system(
+    mut interaction_query: Query<
+        (&Interaction, &CopyAddress),
+        (Changed<Interaction>, With<CopyAddress>),
+    >,
+    wallet: Res<Wallet>,
+) {
+    for (interaction, _) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                println!("Copy address button clicked");
+
+                if let Some(pubkey) = wallet.active_wallet.public_key() {
+                    println!("Address: {}", pubkey);
+
+                    // copy to clipboard on local
+                    #[cfg(target_arch = "x86_64")]
+                    {
+                        use arboard::Clipboard;
+
+                        let mut clipboard = Clipboard::new().unwrap();
+                        clipboard.set_text(pubkey.to_string()).unwrap();
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn button_styling_system(
+    mut interaction_query: Query<(&Interaction, &mut BackgroundColor, &mut BorderColor)>,
+) {
+    for (interaction, mut color, mut border_color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON.into();
+                border_color.0 = Color::linear_rgb(255., 0., 0.);
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                border_color.0 = Color::WHITE;
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+                border_color.0 = Color::BLACK;
+            }
+        }
+    }
+}
+
 #[allow(clippy::type_complexity)]
 pub fn wallet_menu_interaction_system(
     mut interaction_query: Query<
@@ -163,21 +219,6 @@ pub fn wallet_menu_interaction_system(
 ) {
     for (interaction, mut color, mut border_color, button_type) in &mut interaction_query {
         // styling
-
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                border_color.0 = Color::linear_rgb(255., 0., 0.);
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
-            }
-        }
 
         match *interaction {
             Interaction::Pressed => match button_type {
@@ -202,7 +243,7 @@ pub fn wallet_menu_interaction_system(
 #[derive(Debug, Component)]
 pub struct ConnectDisconnectBtnText;
 
-pub fn setup_wallet_menu(mut commands: Commands) {
+pub fn setup_wallet_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     // setup camera
     commands.spawn(Camera2dBundle::default());
 
@@ -250,6 +291,7 @@ pub fn setup_wallet_menu(mut commands: Commands) {
                         .insert(ConnectDisconnectBtnText);
                 })
                 .insert(WalletButtonType::Connect);
+
             // spawn text view for wallet
             parent
                 .spawn(NodeBundle {
@@ -258,7 +300,7 @@ pub fn setup_wallet_menu(mut commands: Commands) {
                         height: Val::Px(50.0),
                         border: UiRect::all(Val::Px(5.0)),
                         // horizontally center child text
-                        justify_content: JustifyContent::Center,
+                        justify_content: JustifyContent::End,
                         // vertically center child text
                         align_items: AlignItems::Center,
                         margin: UiRect {
@@ -281,9 +323,43 @@ pub fn setup_wallet_menu(mut commands: Commands) {
                             },
                         ))
                         .insert(WalletMenu);
+
+                    let image = asset_server.load("copy-regular.png");
+
+                    parent
+                        .spawn(ButtonBundle {
+                            style: Style {
+                                width: Val::Px(40.0),
+                                height: Val::Px(40.0),
+                                border: UiRect::all(Val::Px(1.0)),
+
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                padding: UiRect::all(Val::Px(5.0)),
+                                ..default()
+                            },
+                            border_color: BorderColor(Color::BLACK),
+                            background_color: NORMAL_BUTTON.into(),
+                            ..default()
+                        })
+                        .insert(CopyAddress)
+                        .with_children(|parent| {
+                            parent.spawn(ImageBundle {
+                                style: Style {
+                                    width: Val::Px(30.0),
+                                    height: Val::Px(30.0),
+                                    padding: UiRect {
+                                        top: Val::Px(5.0),
+                                        ..default()
+                                    },
+                                    ..default()
+                                },
+                                image: image.into(),
+                                ..default()
+                            });
+                        });
                 });
         });
-
-    // setup address display
-    // setup balance display
 }

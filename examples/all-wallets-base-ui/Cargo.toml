@@ -14,7 +14,7 @@ wallet-adapter-unsafe-burner.workspace = true
 wallet-adapter-unsafe-persistent = { workspace = true, features = ["wasm"] }
 
 # crates.io
-anyhow = { version = "1", workspace = true }
+anyhow.workspace = true
 anchor-lang-idl = { workspace = true, features = ["convert"] }
 async-trait.workspace = true
 hex.workspace = true
