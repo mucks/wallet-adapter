@@ -11,26 +11,26 @@ use wasm_bindgen::JsValue;
 mod wallet_binding {
     use super::*;
 
-    // PhantomRequestResponse
+    // SolflareRequestResponse
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen]
         #[derive(Clone, Debug)]
-        pub type PhantomRequestResponse;
+        pub type SolflareRequestResponse;
 
         #[wasm_bindgen(method, getter)]
-        pub fn signature(this: &PhantomRequestResponse) -> Option<String>;
+        pub fn signature(this: &SolflareRequestResponse) -> Option<String>;
     }
 
-    // PhantomError
+    // SolflareError
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen]
         #[derive(Clone, Debug)]
-        pub type PhantomError;
+        pub type SolflareError;
 
         #[wasm_bindgen(method, getter)]
-        pub fn message(this: &PhantomError) -> Option<String>;
+        pub fn message(this: &SolflareError) -> Option<String>;
     }
 
     // Pubkey
@@ -45,7 +45,7 @@ mod wallet_binding {
 
     }
 
-    // Phantom
+    // Solflare
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen(thread_local, js_namespace = window, js_name = solflare)]
@@ -59,7 +59,7 @@ mod wallet_binding {
         pub async fn connect(
             this: &Solana,
             options: &JsValue,
-        ) -> std::result::Result<JsValue, PhantomError>;
+        ) -> std::result::Result<JsValue, SolflareError>;
 
         #[wasm_bindgen(method, getter, js_name = publicKey)]
         pub fn public_key(this: &Solana) -> Pubkey;
@@ -68,13 +68,13 @@ mod wallet_binding {
         pub fn is_connected(this: &Solana) -> bool;
 
         #[wasm_bindgen(method, catch)]
-        pub fn disconnect(this: &Solana) -> std::result::Result<(), PhantomError>;
+        pub fn disconnect(this: &Solana) -> std::result::Result<(), SolflareError>;
 
         #[wasm_bindgen(method, catch)]
         pub async fn request(
             this: &Solana,
             options: &JsValue,
-        ) -> std::result::Result<PhantomRequestResponse, PhantomError>;
+        ) -> std::result::Result<SolflareRequestResponse, SolflareError>;
 
         #[wasm_bindgen(method)]
         pub fn on(this: &Solana, event: &str, cb: &js_sys::Function);
@@ -154,7 +154,7 @@ impl GenericWasmWallet for SolflareWallet {
     }
 
     async fn connect(&self) -> Result<()> {
-        tracing::debug!("phantom wallet connect");
+        tracing::debug!("solflare wallet connect");
 
         let result = solana()
             .connect(&JsValue::NULL)

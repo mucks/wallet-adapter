@@ -6,6 +6,7 @@ use solana_sdk::instruction::{AccountMeta, Instruction};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
 use tokio::sync::RwLock;
+use wallet_adapter_backpack::BackpackWalletAdapter;
 use wallet_adapter_base::{BaseWalletAdapter, TransactionOrVersionedTransaction};
 use wallet_adapter_phantom::PhantomWalletAdapter;
 use wallet_adapter_solflare::SolflareWalletAdapter;
@@ -285,6 +286,7 @@ pub fn main() {
 
     let phantom_wallet = PhantomWalletAdapter::new().unwrap();
     let unsafe_burner_wallet = UnsafeBurnerWallet::new();
+    let backpack = BackpackWalletAdapter::new().unwrap();
 
     let unsafe_persistent_wallet =
         UnsafePersistentWallet::new(WasmStorage::local().unwrap()).unwrap();
@@ -294,6 +296,7 @@ pub fn main() {
     let wallets: Vec<Box<dyn BaseWalletAdapter>> = vec![
         phantom_wallet.to_dyn_adapter(),
         solflare.to_dyn_adapter(),
+        backpack.to_dyn_adapter(),
         Box::new(unsafe_burner_wallet),
         Box::new(unsafe_persistent_wallet),
     ];

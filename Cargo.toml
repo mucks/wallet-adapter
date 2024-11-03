@@ -27,6 +27,7 @@ wallet-adapter-x86 = { path = "./wallet-adapter-x86" }
 ## wallets
 wallet-adapter-phantom = { path = "./wallets/wallet-adapter-phantom" }
 wallet-adapter-solflare = { path = "./wallets/wallet-adapter-solflare" }
+wallet-adapter-backpack = { path = "./wallets/wallet-adapter-backpack" }
 wallet-adapter-unsafe-burner = { path = "./wallets/wallet-adapter-unsafe-burner" }
 wallet-adapter-unsafe-persistent = { path = "./wallets/wallet-adapter-unsafe-persistent" }
 

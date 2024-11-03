@@ -124,6 +124,7 @@ dependencies = [
  "solana-sdk",
  "tokio",
  "tracing-wasm",
+ "wallet-adapter-backpack",
  "wallet-adapter-base",
  "wallet-adapter-common",
  "wallet-adapter-phantom",
@@ -5508,6 +5509,28 @@ checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
 dependencies = [
  "same-file",
  "winapi-util",
+]
+
+[[package]]
+name = "wallet-adapter-backpack"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "solana-sdk",
+ "tokio",
+ "tracing",
+ "wallet-adapter-base",
+ "wallet-adapter-common",
+ "wallet-adapter-wasm",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

@@ -8,6 +8,7 @@ edition.workspace = true
 wallet-adapter-base.workspace = true
 wallet-adapter-common.workspace = true
 wallet-adapter-wasm.workspace = true
+wallet-adapter-backpack.workspace = true
 wallet-adapter-phantom.workspace = true
 wallet-adapter-solflare.workspace = true
 wallet-adapter-unsafe-burner.workspace = true
