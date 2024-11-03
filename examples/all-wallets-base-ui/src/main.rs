@@ -292,8 +292,8 @@ pub fn main() {
     let solflare = SolflareWalletAdapter::new().unwrap();
 
     let wallets: Vec<Box<dyn BaseWalletAdapter>> = vec![
-        Box::new(phantom_wallet),
-        Box::new(solflare),
+        phantom_wallet.to_dyn_adapter(),
+        solflare.to_dyn_adapter(),
         Box::new(unsafe_burner_wallet),
         Box::new(unsafe_persistent_wallet),
     ];

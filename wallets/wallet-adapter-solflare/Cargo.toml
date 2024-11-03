@@ -7,6 +7,7 @@ edition.workspace = true
 # workspace
 wallet-adapter-base.workspace = true
 wallet-adapter-common.workspace = true
+wallet-adapter-wasm.workspace = true
 
 # crates.io
 anyhow.workspace = true

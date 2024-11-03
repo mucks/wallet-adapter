@@ -6,15 +6,21 @@ edition.workspace = true
 [dependencies]
 # workspace
 wallet-adapter-common.workspace = true
+wallet-adapter-base.workspace = true
+
 # crates.io
 anyhow.workspace = true
 async-trait.workspace = true
 base64.workspace = true
 gloo-net = { workspace = true, features = ["http"] }
 hex.workspace = true
+js-sys.workspace = true
 solana-sdk.workspace = true
+serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tracing.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
 web-sys = { workspace = true, features = [
     "Window",
     "Location",
