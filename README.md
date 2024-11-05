@@ -13,4 +13,4 @@ Modular Rust wallet adapter and components for Rust applications.
 - [x] support phantom wallet
 - [x] burner wallet
 - [x] support solflare wallet 
-- [ ] support backpack wallet
+- [x] support backpack wallet

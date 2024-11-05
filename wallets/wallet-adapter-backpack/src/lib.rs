@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail, Context, Result};
-use js_sys::{JsString, Reflect};
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
@@ -94,6 +93,19 @@ mod wallet_binding {
     pub fn solana() -> Backpack {
         BACKPACK.with(|backpack| backpack.clone())
     }
+}
+
+#[wasm_bindgen(inline_js = "
+    export function convert_json_tx_to_tx(json_tx, serialize_fn) {
+        json_tx.serialize = function() {
+            return serialize_fn(this);
+        }
+
+        return json_tx;
+    }
+")]
+extern "C" {
+    fn convert_json_tx_to_tx(tx: JsValue, serialize_fn: &JsValue) -> JsValue;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,9 +206,9 @@ impl GenericWasmWallet for BackpackWallet {
         let tx_as_value = serde_wasm_bindgen::to_value(&tx).map_err(|e| anyhow!("{:?}", e))?;
         tracing::info!("tx_value {:?}", tx_as_value);
 
-        let closure = Closure::wrap(Box::new(move |this: JsValue| {
-            tracing::info!("{:?}", this);
-            let tx: Transaction = serde_wasm_bindgen::from_value(this).unwrap();
+        let closure = Closure::wrap(Box::new(move |tx: JsValue| {
+            tracing::info!("{:?}", tx);
+            let tx: Transaction = serde_wasm_bindgen::from_value(tx).unwrap();
             let tx_bytes = bincode::serialize(&tx).unwrap();
             tracing::info!("serialized");
             // disconnected code here
@@ -204,7 +216,7 @@ impl GenericWasmWallet for BackpackWallet {
             tx_bytes
         }) as Box<dyn FnMut(JsValue) -> Vec<u8>>);
 
-        Reflect::set(&tx_as_value, &JsString::from("serialize"), closure.as_ref()).unwrap();
+        let tx_as_value = convert_json_tx_to_tx(tx_as_value, closure.as_ref().unchecked_ref());
 
         closure.forget();
 
