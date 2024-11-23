@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "examples/all-wallets-base-ui",
     "examples/all-wallets-bevy",
+    "examples/all-wallets-leptos",
     "wallet-adapter-base",
     "wallet-adapter-bevy",
     "wallet-adapter-common",
@@ -44,6 +45,7 @@ futures = "0.3"
 gloo-net = "0.6"
 hex = "0.4"
 js-sys = "0.3.65"
+leptos = "0.6"
 platform-dirs = "0.3.0"
 reqwest = "0.12"
 serde = { version = "1", features = ["derive"] }

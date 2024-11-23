@@ -1,0 +1,12 @@
+[package]
+name = "all-wallets-leptos"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+wallet-adapter-base.workspace = true
+wallet-adapter-phantom.workspace = true
+wallet-adapter-solflare.workspace = true
+
+anyhow.workspace = true
+leptos = { workspace = true, features = ["csr"] }
